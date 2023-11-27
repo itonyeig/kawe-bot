@@ -2,17 +2,16 @@ import { Request, Response } from "express";
 
 export async function whatsappGET(req: Request, res: Response) {
     try {
-    //   const token = process.env.VERIFY_TOKEN_WHATSAPP;
-    //   if (
-    //     req.query["hub.mode"] == "subscribe" &&
-    //     req.query["hub.verify_token"] == token
-    //   ) {
-    //     console.log("webhook connected");
-    //     res.send(req.query["hub.challenge"]);
-    //   } else {
-    //     res.sendStatus(400);
-    //   }
-    res.send('its alive')
+      const token = process.env.VERIFY_TOKEN_WHATSAPP;
+      if (
+        req.query["hub.mode"] == "subscribe" &&
+        req.query["hub.verify_token"] == token
+      ) {
+        console.log("webhook connected");
+        res.send(req.query["hub.challenge"]);
+      } else {
+        res.sendStatus(400);
+      }
     } catch (error) {
       console.log(error);
     }
