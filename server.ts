@@ -4,6 +4,8 @@ import express, { Application, Request, Response } from "express";
 import mongoose from "mongoose";
 import { whatsappGET, whatsappPOST } from "./request.handler";
 import protectServer from "./utils/config";
+import { getBot } from "./utils/helper";
+import morgan from 'morgan';
 
 
 initializeApp();
@@ -14,7 +16,7 @@ async function initializeApp(){
   
   try {
     console.log(":::connecting to database:::");
-    // await mongoose.connect(mongoUrl);
+    await mongoose.connect(mongoUrl);
     console.log(":::connected to database:::");
 
     const app: Application = express();
@@ -25,9 +27,25 @@ async function initializeApp(){
     
     app.use(express.json());
 
+    // Use Morgan middleware to log incoming requests
+    app.use(morgan('dev')); // 'dev' is a pre-defined log format
+
     // GET route for home
-    app.get("/", async (req: Request, res: Response) => {
+    app.get("/", (req: Request, res: Response) => {
       res.json({ message: "Kawe bot server is up",  });
+    });
+    
+    app.get("/test-route", async (req: Request, res: Response) => {
+      try {
+        const response = await getBot('2349079325911');
+        res.send({
+          message: 'user saved sucessfully',
+          user: response
+        })
+      } catch (error: any) {
+        console.log("an error occured", error)
+        res.send(error.message)
+      }
     });
 
     // WhatsApp Callback URL for server verification
@@ -35,7 +53,7 @@ async function initializeApp(){
 
     app.post("/webhook/whatsapp", whatsappPOST);
 
-    app.listen(port, () => console.log(`sanwo bot running on port ${port}`));
+    app.listen(port, () => console.log(`Kawe bot is running on port ${port}`));
   } catch (err) {
     console.error("mongo error in connection:", err);
   }
