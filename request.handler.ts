@@ -35,14 +35,18 @@ export async function whatsappGET(req: Request, res: Response) {
         ) {
           let phone_number_id = req.body.entry[0].changes[0].value.metadata.phone_number_id;
           let whatsapp_number = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
-          let msg_body = req.body.entry[0].changes[0].value.messages[0].text.body.trim(); // extract the message text from the webhook payload
+          let msg = req.body.entry[0].changes[0].value.messages[0].text.body.trim(); // extract the message text from the webhook payload
           // const body: WhatsAppReqObject = req.body;
   
           const botProfile = await getBot(whatsapp_number)
 
            if (botProfile !== undefined) {
-            const kawe_bot = new Bot(botProfile, msg_body, phone_number_id, whatsapp_number);
+            const kawe_bot = new Bot({botProfile, msg, whatsapp_number, whatsapp_phone_id: phone_number_id });
             await kawe_bot.run();
+          } else {
+            const temp_user = new Bot({whatsapp_phone_id: phone_number_id, whatsapp_number})
+
+            temp_user.transmitMessage('This number is not associated with any account with us. Please visit xyz.com to create an account')
           }
           
         }

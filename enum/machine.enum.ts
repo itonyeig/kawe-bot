@@ -1,6 +1,7 @@
 export enum MachineState {
     IDLE="idle",
-    AWAITING_DEFAULT_PAGE_RESPONSE="awaiting-default-page-response"
+    AWAITING_BOOK_SEARCH_PROMPT="book-search",
+    AWAITING_BOOK_SELECTION="book-selection"
 }
 
 export default MachineState
