@@ -10,7 +10,10 @@ const BotSchema = new Schema<BotModel>({
         required: true,
         unique: true,
       },
-    token: String,
+    token: {
+      type: String,
+      required: true,
+    },
     fullname: { type: String, required: true },
     firstname: String,
     currentState: {
@@ -23,6 +26,8 @@ const BotSchema = new Schema<BotModel>({
       enum: [...Object.values(MachineState), null],
       default: null,
     },
+    stringifiedSearchedBooks: String,
+    searchMessageToUser: String
 },
 {
     timestamps: true,

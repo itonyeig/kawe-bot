@@ -23,11 +23,11 @@ export default class Bot {
     private token = process.env.WHATSAPP_TOKEN;
 
 
-    constructor(botProfile: BotModel, msg: string, whatsapp_phone_id: string, whatsapp_number: string){
-        this.botProfile = botProfile;
-        this.userMessage = msg;
-        this.whatsapp_phone_id = whatsapp_phone_id;
-        this.whatsapp_number = whatsapp_number;
+    constructor(botAttributes: { botProfile?: BotModel, msg?: string, whatsapp_phone_id: string, whatsapp_number: string }){
+        this.botProfile = botAttributes.botProfile as BotModel;
+        this.userMessage = botAttributes.msg as string;
+        this.whatsapp_phone_id = botAttributes.whatsapp_phone_id;
+        this.whatsapp_number = botAttributes.whatsapp_number;
     }
 
     async run() {

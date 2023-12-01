@@ -8,15 +8,21 @@ type MachineHandler = {
 
   const machine: Record<MachineState, MachineHandler> = {
     [MachineState.IDLE]: {
-        nextStates: [MachineState.AWAITING_DEFAULT_PAGE_RESPONSE],
+        nextStates: [MachineState.AWAITING_BOOK_SEARCH_PROMPT],
         handle: async (engine) => {
-          await engine.handleHomeState();
+          await engine.handle_default();
         },
       },
-    [MachineState.AWAITING_DEFAULT_PAGE_RESPONSE]: {
-        nextStates: [MachineState.AWAITING_DEFAULT_PAGE_RESPONSE],
+    [MachineState.AWAITING_BOOK_SEARCH_PROMPT]: {
+        nextStates: [MachineState.AWAITING_BOOK_SELECTION],
         handle: async (engine) => {
-          await engine.handle_awaiting_home_response();
+          await engine.book_search();
+        },
+      },
+    [MachineState.AWAITING_BOOK_SELECTION]: {
+        nextStates: [],
+        handle: async (engine) => {
+          await engine.book_selection();
         },
       },
   }

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { KaweUserProfile, LoginResponseI } from "../interface/kawe.interface";
+import { Book, GetBooksApiResponse, KaweUserProfile, LoginResponseI } from "../interface/kawe.interface";
 import { Bot, BotModel } from "../model/bot.model";
 import { BotI } from "../interface/bot.interface";
 
@@ -17,14 +17,14 @@ async function login(phone: string): Promise<LoginResponseI> {
       },
       data: data,
     };
-
+    console.log(":::caling Kawe login:::")
     const botLogin: LoginResponseI = (await axios.request(config)).data;
 
     
 
     return botLogin;
   } catch (error: any) {
-    throw error?.data || error;
+    throw error.response?.data || error
   }
 }
 
@@ -45,7 +45,7 @@ async function getBot(wa_id: string): Promise<BotModel | undefined> {
         return;
       }
 
-      if (botLogin && !botLogin.status) {
+      if (botLogin.status === "failed") {
         return;
       }
 
@@ -63,7 +63,7 @@ async function getBot(wa_id: string): Promise<BotModel | undefined> {
     }
     return user;
   } catch (error: any) {
-    throw error?.data || error;
+    throw error.response?.data || error
   }
 }
 
@@ -76,14 +76,41 @@ async function getKaweProfile(token: string): Promise<KaweUserProfile> {
         'Authorization': `Bearer ${token}`, 
       },
     };
-
+    console.log(":::getting Kawe user profile:::")
     const response: KaweUserProfile = (await axios.request(config)).data;
 
     return response
 
   } catch (error: any) {
-    throw error?.data || error;
+    throw error.response?.data || error
   }
 }
 
-export { getBot };
+async function searchBooks(query: string, token: string): Promise<GetBooksApiResponse>{
+  try {
+    const config = {
+      method: 'post', // using POST as per your initial example
+      url: `${baseURL}/user/books/search`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      data: JSON.stringify({ query }) // Sending the query in the request body
+    };
+    console.log(":::searching for book through Kawe api:::")
+    const response: GetBooksApiResponse = (await axios.request(config)).data;
+
+    return response;
+
+  } catch (error: any) {
+    console.log('an error occured while searching for a book')
+    throw error.response?.data || error;
+  }
+}
+
+function formatBooksList(books: Book[]): string {
+  const formattedBooks = books.map((book, index) => `👉[${index + 1}] ${book.title} by ${book.author_name}`).join('\n');
+  const prompt = "Please select the number corresponding to the book you are interested in:";
+  return `${prompt}\n\n${formattedBooks}\n`;
+}
+export { getBot, searchBooks, formatBooksList };
