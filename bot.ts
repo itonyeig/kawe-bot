@@ -1,8 +1,7 @@
-import { MachineState } from "../enum/machine.enum";
-import { BotModel } from "../model/bot.model";
-import BotEngine from "./engine";
+import {MachineState, MachineStateType} from "./states/machine.state";
+import { BotModel } from "./model/bot.model";
 import axios from 'axios';
-import Machine from "./machine";
+import Machine from "./machines/machine";
 
 
 export default class Bot {
@@ -15,10 +14,15 @@ export default class Bot {
         return this.botProfile.previousState;
       }
 
+      private get machine(){
+        return Machine(this)[this.currentState as MachineStateType || MachineState.IDLE]
+      }
+
     botProfile: BotModel;
     userMessage: string;
     whatsapp_phone_id: string;
     whatsapp_number: string;
+    default_message: string;
 
     private token = process.env.WHATSAPP_TOKEN;
 
@@ -28,27 +32,25 @@ export default class Bot {
         this.userMessage = botAttributes.msg as string;
         this.whatsapp_phone_id = botAttributes.whatsapp_phone_id;
         this.whatsapp_number = botAttributes.whatsapp_number;
+        this.default_message = `Hello ${this.botProfile.firstname}, what book will you like to borrow, today? Kindly enter the book title or book author.\n\nYou can type 'Hello at any point to come back here`
     }
 
     async run() {
         console.log(
           `state passed in: ${
-            this.botProfile?.currentState || null
+            this.currentState || null
           }`
         );
     
-        const botEngine = new BotEngine(this); // instantiate a new BotEngine
     
-        if (this.botProfile.currentState !== MachineState.IDLE 
+        if (this.currentState !== MachineState.IDLE 
             // && this.currentState !== MachineState.TEMP_USER_HOME
             ) {
           await this.setDefaultState();
         }    
     
-        // Validate if the current state exists in machine
-        const machineState = Machine[this.botProfile.currentState as MachineState] || Machine[MachineState.IDLE];
-        // Pass the botEngine instance to the state handler'
-        return machineState.handle(botEngine);
+        // check if bot has current state OR set current state to idle
+        return this.machine.handle()
       }
 
       private withinBotSession(): boolean {
@@ -129,16 +131,29 @@ export default class Bot {
         }
     }
 
+    async handleDefault(){
+      try {
+        await this.transition(MachineState.AWAITING_BOOK_SEARCH_PROMPT)
+        await this.transmitMessage(this.default_message)
+      
+    } catch (error) {
+      console.log("err occured in handle_default ", error)
+    }
+    }
 
-    public async transition(newState: MachineState) {
+  
+
+
+    public async transition(newState: MachineStateType) {
         // Debug messages
         console.log(
           `Attempting transition from ${this.currentState} to ${newState}`
         );
     
         // Check if the transition is valid
-        const machine = Machine[this.currentState as MachineState];
-        if (machine && !machine.nextStates.includes(newState) && newState !== MachineState.IDLE && newState !== this.previoustState && newState !== this.currentState) {
+         const machine = this.machine
+        ;
+          if (machine && !machine.nextStates.includes(newState) && newState !== MachineState.IDLE && newState !== this.previoustState && newState !== this.currentState) {
           throw new Error(
             `Invalid state transition: ${this.currentState} -> ${newState}`
           );

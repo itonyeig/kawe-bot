@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { getBot } from "./utils/helper";
-import Bot from "./kawe-bot/bot";
+import Bot from "./bot";
+import { WhatsAppReqObject } from "./interface/whatsapp.interface";
 
 export async function whatsappGET(req: Request, res: Response) {
     try {
@@ -17,7 +18,9 @@ export async function whatsappGET(req: Request, res: Response) {
     } catch (error) {
       console.log(error);
     }
-  }export async function whatsappPOST(req: Request, res: Response) {
+  }
+  
+  export async function whatsappPOST(req: Request, res: Response) {
     try {
 
       const token = process.env.WHATSAPP_TOKEN;
@@ -36,7 +39,8 @@ export async function whatsappGET(req: Request, res: Response) {
           let phone_number_id = req.body.entry[0].changes[0].value.metadata.phone_number_id;
           let whatsapp_number = req.body.entry[0].changes[0].value.messages[0].from; // extract the phone number from the webhook payload
           let msg = req.body.entry[0].changes[0].value.messages[0].text.body.trim(); // extract the message text from the webhook payload
-          // const body: WhatsAppReqObject = req.body;
+          const body: WhatsAppReqObject = req.body;
+          let name = body.entry[0].changes[0].value.contacts[0].profile.name
   
           const botProfile = await getBot(whatsapp_number)
 
