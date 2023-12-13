@@ -1,6 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 import { BotI } from '../interface/bot.interface';
-import { MachineState } from '../enum/machine.enum';
+import { MachineState } from '../states/machine.state';
 
 export interface BotModel extends BotI, Document {}
 

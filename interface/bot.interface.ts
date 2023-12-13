@@ -1,12 +1,12 @@
-import { MachineState } from "../enum/machine.enum";
+import { MachineStateType } from "../states/machine.state";
 
 export interface BotI {
     wa_id: string;
     token: string;
     fullname: string;
     firstname?: string | null;
-    currentState?: MachineState;
-    previousState?: MachineState;
+    currentState?: MachineStateType;
+    previousState?: MachineStateType;
     stringifiedSearchedBooks?: string;
     searchMessageToUser?: string;
 
