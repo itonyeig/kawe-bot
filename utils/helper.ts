@@ -28,35 +28,34 @@ async function login(phone: string): Promise<LoginResponseI> {
   }
 }
 
-async function getBot(wa_id: string): Promise<BotModel | undefined> {
-  const formatNumber = (phone: string): string => {
-    if (phone.startsWith("234")) {
-      return "0" + phone.slice(3);
-    }
-    return phone;
-  };
+async function getBot(wa_id: string, name: string): Promise<BotModel | undefined> {
+  // const formatNumber = (phone: string): string => {
+  //   if (phone.startsWith("234")) {
+  //     return "0" + phone.slice(3);
+  //   }
+  //   return phone;
+  // };
   try {
     let user = await Bot.findOne({ wa_id });
     if (!user) {
-      let botLogin: LoginResponseI;
-      try {
-        botLogin = await login(formatNumber(wa_id));
-      } catch (error) {
-        return;
-      }
+      // let botLogin: LoginResponseI;
+      // try {
+      //   botLogin = await login(formatNumber(wa_id));
+      // } catch (error) {
+      //   return;
+      // }
 
-      if (botLogin.status === "failed") {
-        return;
-      }
+      // if (botLogin.status === "failed") {
+      //   return;
+      // }
 
-      const { token } = botLogin;
-      const  { data: kaweProfile } = await getKaweProfile(botLogin.token)
+      // const { token } = botLogin;
+      // const  { data: kaweProfile } = await getKaweProfile(botLogin.token)
       const userData: BotI = {
-        token,
         wa_id,
-        fullname: kaweProfile.fullname,
-        firstname: kaweProfile.fullname?.split(" ")[0]
-        
+        name: name as string,
+        params: {},
+        active: false
       };
 
       user = await Bot.create(userData);

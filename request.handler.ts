@@ -23,7 +23,6 @@ export async function whatsappGET(req: Request, res: Response) {
   export async function whatsappPOST(req: Request, res: Response) {
     try {
 
-      const token = process.env.WHATSAPP_TOKEN;
       // Check the Incoming webhook message
       // console.log(JSON.stringify(req.body, null, 2));
   
@@ -42,7 +41,7 @@ export async function whatsappGET(req: Request, res: Response) {
           const body: WhatsAppReqObject = req.body;
           let name = body.entry[0].changes[0].value.contacts[0].profile.name
   
-          const botProfile = await getBot(whatsapp_number)
+          const botProfile = await getBot(whatsapp_number, name)
 
            if (botProfile !== undefined) {
             const kawe_bot = new Bot({botProfile, msg, whatsapp_number, whatsapp_phone_id: phone_number_id });
@@ -50,7 +49,7 @@ export async function whatsappGET(req: Request, res: Response) {
           } else {
             const temp_user = new Bot({whatsapp_phone_id: phone_number_id, whatsapp_number})
 
-            temp_user.transmitMessage('This number is not associated with any account with us. Please visit xyz.com to create an account')
+            await temp_user.transmitMessage('This number is not associated with any account with us. Please visit xyz.com to create an account')
           }
           
         }

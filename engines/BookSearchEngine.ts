@@ -27,7 +27,7 @@ export default class BookSearchEngine {
 
         try {
             
-            const kawe_books = await searchBooks(user_msg, this.bot.botProfile.token)
+            const kawe_books = await searchBooks(user_msg, `${process.env.KAWE_TOKEN}`)
             if (kawe_books?.data?.length === 0) {
                 await this.bot.transmitMessage('No books matched your search. Would you like to try a different keyword or phrase? Please enter your new search term or phrase.')
                 return
@@ -40,8 +40,8 @@ export default class BookSearchEngine {
                 num: index + 1
             } as SearchedBooks));
             const stringifiedSearchedBooks = JSON.stringify(searchResults)
-            this.bot.botProfile.stringifiedSearchedBooks = stringifiedSearchedBooks
-            this.bot.botProfile.searchMessageToUser = message
+            this.bot.botProfile.params.stringifiedSearchedBooks = stringifiedSearchedBooks
+            this.bot.botProfile.params.searchMessageToUser = message
             await this.bot.botProfile.save();
             await this.bot.transition(MachineState.AWAITING_BOOK_SELECTION)
             await this.bot.transmitMessage(message)
@@ -53,11 +53,11 @@ export default class BookSearchEngine {
 
     async book_selection(){
         const msg = +this.bot.userMessage;
-        const searchBooks: SearchedBooks[] = JSON.parse(this.botProfile.stringifiedSearchedBooks as string)
+        const searchBooks: SearchedBooks[] = JSON.parse(this.botProfile.params.stringifiedSearchedBooks as string)
         
         try {
             if (!this.isValidInput(msg, searchBooks.length)) {
-                await this.bot.transmitMessage(`That was not a valid response\n\n${this.botProfile.searchMessageToUser}`)
+                await this.bot.transmitMessage(`That was not a valid response\n\n${this.botProfile.params.searchMessageToUser}`)
                 return
             }
             const selectedBook = searchBooks.find(book => book.num === msg)

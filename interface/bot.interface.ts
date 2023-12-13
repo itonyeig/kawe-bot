@@ -1,15 +1,14 @@
 import { MachineStateType } from "../states/machine.state";
+import { Params } from './params.interface';
+
 
 export interface BotI {
     wa_id: string;
-    token: string;
-    fullname: string;
-    firstname?: string | null;
+    name: string;
     currentState?: MachineStateType;
     previousState?: MachineStateType;
-    stringifiedSearchedBooks?: string;
-    searchMessageToUser?: string;
-
+    params: Params;
+    active: boolean;
     createdAt?: Date;
     updatedAt?: Date;
 

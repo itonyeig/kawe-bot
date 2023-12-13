@@ -7,16 +7,16 @@ import Machine from "./machines/machine";
 export default class Bot {
 
     get currentState() {
-        return this.botProfile.currentState;
-      }
+      return this.botProfile.currentState;
+    }
 
-      get previoustState() {
-        return this.botProfile.previousState;
-      }
+    get previoustState() {
+      return this.botProfile.previousState;
+    }
 
-      private get machine(){
-        return Machine(this)[this.currentState as MachineStateType || MachineState.IDLE]
-      }
+    private get machine(){
+      return Machine(this)[this.currentState as MachineStateType || MachineState.IDLE]
+    }
 
     botProfile: BotModel;
     userMessage: string;
@@ -32,7 +32,7 @@ export default class Bot {
         this.userMessage = botAttributes.msg as string;
         this.whatsapp_phone_id = botAttributes.whatsapp_phone_id;
         this.whatsapp_number = botAttributes.whatsapp_number;
-        this.default_message = `Hello ${this.botProfile.firstname}, what book will you like to borrow, today? Kindly enter the book title or book author.\n\nYou can type 'Hello at any point to come back here`
+        this.default_message = `Hello ${this.botProfile.name}, what book will you like to borrow, today? Kindly enter the book title or book author.\n\nYou can type 'Hello at any point to come back here`
     }
 
     async run() {
@@ -216,5 +216,5 @@ export default class Bot {
           }
           throw error
         }
-      }
+    }
 }
