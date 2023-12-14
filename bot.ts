@@ -2,6 +2,9 @@ import {MachineState, MachineStateType} from "./states/machine.state";
 import { BotModel } from "./model/bot.model";
 import axios from 'axios';
 import Machine from "./machines/machine";
+import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
+import { formatChildrenList, isValidInput } from "./utils/helper";
+import Recommendation_States from "./states/recommendation.states";
 
 
 export default class Bot {
@@ -32,25 +35,30 @@ export default class Bot {
         this.userMessage = botAttributes.msg as string;
         this.whatsapp_phone_id = botAttributes.whatsapp_phone_id;
         this.whatsapp_number = botAttributes.whatsapp_number;
-        this.default_message = `Hello ${this.botProfile.name}, what book will you like to borrow, today? Kindly enter the book title or book author.\n\nYou can type 'Hello at any point to come back here`
+        this.default_message = `Please choose from the following options:\n👉[1] Allow us to suggest a book for you\n👉[2]Search our library for a specific book.
+        `
     }
 
     async run() {
-        console.log(
-          `state passed in: ${
-            this.currentState || null
-          }`
-        );
-    
-    
-        if (this.currentState !== MachineState.IDLE 
-            // && this.currentState !== MachineState.TEMP_USER_HOME
-            ) {
-          await this.setDefaultState();
-        }    
-    
-        // check if bot has current state OR set current state to idle
-        return this.machine.handle()
+        try {
+          console.log(
+            `state passed in: ${
+              this.currentState || null
+            }`
+          );
+      
+      
+          if (this.currentState !== MachineState.IDLE 
+              // && this.currentState !== MachineState.TEMP_USER_HOME
+              ) {
+            await this.setDefaultState();
+          }    
+      
+          // check if bot has current state OR set current state to idle
+          return this.machine.handle()
+        } catch (error: any) {
+          console.log('error in run method ', error.message)
+        }
       }
 
       private withinBotSession(): boolean {
@@ -67,7 +75,7 @@ export default class Bot {
             return false;
         }
         const difference = date2.getTime() - date1.getTime();
-        const minutes = 5;
+        const minutes = 45;
         const millisecondsToMinutes = Math.floor(difference / 60000);
         if (millisecondsToMinutes <= minutes) {
           return true;
@@ -79,9 +87,9 @@ export default class Bot {
       private async setDefaultState() {
         if (
           !this.withinBotSession() ||
-          this.userMessage.toLocaleLowerCase() === "hello"
-        ) {
-          console.log("reseting machine ....");
+          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in(NEW_USER_STATES))
+        ){
+          
           try {
             // reset bot
             await this.rebootBot()
@@ -93,52 +101,65 @@ export default class Bot {
       }
 
       async rebootBot(){
+        console.log("reseting machine ....");
         try {
-        //   // reset bot here
-        //   this.currentMode.invoice = {
-        //     payment_type: undefined,
-        //     customer: {
-        //       customer_name: '',
-        //       customer_address: '',
-        //       customer_phone_number: '',
-        //       customer_email: '',
-        //     },
-        //     products: [],
-        //     selectedProducts: [],
-        //   };
-    
-        //   this.currentMode.express = {
-        //     customer_email_address: '',
-        //     customer_phone_number: '',
-        //     seller_phone_number: '',
-        //     seller_email_address: '',
-        //     products: [],
-        //   };
-      
-        //   // Save the updated Bot instance
-        //   await this.profile.save();
-    
-        //   const { token, temp_user, _id } = this.profile
-    
-        //   if (token || temp_user === false) {
-        //     await this.transition(MachineState.HOME);
-        //   } else {
-            //     await this.transition(MachineState.TEMP_USER_HOME)
-            //   }
-                await this.transition(MachineState.IDLE);
+            this.botProfile.params = {}
+            await this.botProfile.save()
+            await this.transition(MachineState.IDLE);
         } catch (error) {
           console.log("rebootBot", error)
         }
+      }
+
+      private is_currently_in<T extends Record<string, string>>(stateEnum: T): boolean {
+        return Object.values(stateEnum).includes(this.currentState as string);
     }
 
     async handleDefault(){
       try {
-        await this.transition(MachineState.AWAITING_BOOK_SEARCH_PROMPT)
-        await this.transmitMessage(this.default_message)
+        await this.transition(MachineState.AWAITING_WAKE_FROM_IDLE_RESPONSE)
+        await this.transmitMessage(`Greetings, ${this.botProfile.name}! ${this.default_message}`)
       
     } catch (error) {
       console.log("err occured in handle_default ", error)
     }
+    }
+
+    async handle_wake_from_idle() {
+      if (!isValidInput(+this.userMessage, 2)) {
+          await this.transmitMessage(`That was not a valid response\n\n${this.default_message}`)
+          return;
+      }
+      try {
+        switch (+this.userMessage) {
+          case 1:
+            if (this.botProfile.recommendationInfoCompleted) {
+              // await this.transition(Recommendation_States.)
+            } else if (this.botProfile.children.length === 0) {
+              await this.transition(New_User_States.NEW_CHILD);
+              await this.transmitMessage("Please provide us with some basic details about the child for whom you'd like to order a book:\n\nName, Date of Birth (dd-mm-yyyy)\n\nexample: Amamda, 23-01-2012");
+            } else if (this.botProfile.children.length > 0 && this.botProfile.recommendInfo.length >=5) {
+              const message = formatChildrenList(this.botProfile.children)
+              await this.transition(Recommendation_States.AWAITING_CHILD_NAME)
+              await this.transmitMessage(message)
+            } else {
+              await this.transmitMessage(':::::::::');
+            }
+            break;
+        
+          case 2:
+            await this.transition(MachineState.AWAITING_BOOK_SEARCH_PROMPT);
+            await this.transmitMessage('What book will you like to search for? Kindly enter the book title or book author.');
+            break;
+        
+          default:
+            await this.transmitMessage('Request could not be processed');
+            break;
+        }
+        
+      } catch (error) {
+        console.log("err occured in handle_default ", error)
+      }
     }
 
   
@@ -188,6 +209,8 @@ export default class Bot {
         }
       }
 
+    
+
     async transmitMessage(msg: string){
         try {
           
@@ -206,7 +229,7 @@ export default class Bot {
               },
               headers: { "Content-Type": "application/json" },
             });
-            console.log("transmited message", msg)
+            console.log("transmited message: ", msg)
     
         } catch (error: any) {
           if (error.response && error.response.data && error.response.data.error) {
