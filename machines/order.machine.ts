@@ -21,9 +21,15 @@ type BookMachineHandler = {
         }
       },
     [OrderState.AWAITING_BOOK_SELECTION]: {
-        nextStates: [],
+        nextStates: [OrderState.CONFIRM_ORDER],
         handle: async () => {
           await orderEngine.book_selection()
+        }
+      },
+    [OrderState.CONFIRM_ORDER]: {
+        nextStates: [],
+        handle: async () => {
+          await orderEngine.place_order()
         }
       },
 

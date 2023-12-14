@@ -10,6 +10,8 @@ const ParamSchema = new Schema<Params>({
   searchMessageToUser: String,
   selectedChild: String,
   createdChild: String,
+  selected_book_id: String,
+  selected_book: String,
   
 }, {
   _id: false,

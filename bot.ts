@@ -3,7 +3,7 @@ import { BotModel } from "./model/bot.model";
 import axios from 'axios';
 import Machine from "./machines/machine";
 import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
-import { formatChildrenList, generateGPTPContext, isValidInput } from "./utils/helper";
+import { check_if_user_cant_make_order, formatChildrenList, generateGPTPContext, isValidInput } from "./utils/helper";
 import Recommendation_States from "./states/recommendation.states";
 import { getBookRecommendations } from "./services/open-ai.service";
 import OrderState from "./states/order.states";
@@ -90,7 +90,9 @@ export default class Bot {
       private async setDefaultState() {
         if (
           !this.withinBotSession() ||
-          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in(NEW_USER_STATES))
+          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in(NEW_USER_STATES)
+          // || this.currentState === MachineState.IDLE
+          )
         ){
           
           try {
@@ -108,7 +110,10 @@ export default class Bot {
         try {
             this.botProfile.params = {}
             await this.botProfile.save()
-            await this.transition(MachineState.IDLE);
+            if (this.currentState !== MachineState.IDLE) {
+              await this.transition(MachineState.IDLE)
+              
+            }
         } catch (error) {
           console.log("rebootBot", error)
         }
@@ -215,14 +220,18 @@ export default class Bot {
 
       async recommendations(){
         try {
-          await this.transmitMessage('thinking...')
+          if (await check_if_user_cant_make_order(this.whatsapp_number)) {
+            await this.transmitMessage('Apologies, but it appears that you either have books that are yet to be returned or there are pending payments on your account.')
+            return
+          }
+          await this.transmitMessage('Loading...')
           const context = await generateGPTPContext(this.botProfile)
           if (!context.canGenerate) {
               await this.transition(MachineState.IDLE)
               await this.transmitMessage(`an error occured`)
               return
           } 
-          const recommendation = await getBookRecommendations(context.childAge, context.bookList, context.orderHistory, context.questionsAnswers)
+          const recommendation = await getBookRecommendations(context.childAge, context.bookList, context.orderHistory, context.questionsAnswers, this.botProfile.params.selectedChild as string)
           await this.transition(OrderState.AWAITING_BOOK_SEARCH_PROMPT)
           await this.transmitMessage(`${recommendation}\n\nPlease enter the title or author of a book we recommended, or feel free to search for any other book or author of your choice`)
         } catch (error) {

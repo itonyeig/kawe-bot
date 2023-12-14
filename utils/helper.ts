@@ -3,35 +3,16 @@ import { Book, GetBooksApiResponse, KaweUserProfile, LoginResponseI } from "../i
 import { Bot, BotModel } from "../model/bot.model";
 import { BotI, INameDob } from "../interface/bot.interface";
 import { MachineState } from "../states/machine.state";
-import { Order } from "../interface/order.interface";
-import { differenceInYears } from "date-fns";
+import { OrderI } from "../interface/order.interface";
+import { differenceInYears, subWeeks } from "date-fns";
 import { QuestionsAnswers } from "../services/open-ai.service";
 import { bookRecommendationQuestions } from './recommendation-questions';
+import { BookModel } from "../model/book.model";
+import { OrderModel } from "../model/order.model";
 
 const baseURL = process.env.KAWE_BASE_URL;
 
-async function login(phone: string): Promise<LoginResponseI> {
-  try {
-    let data = JSON.stringify({ phone });
 
-    let config = {
-      method: "post",
-      url: `${baseURL}/auth/authenticate/with/bot`,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: data,
-    };
-    console.log(":::caling Kawe login:::")
-    const botLogin: LoginResponseI = (await axios.request(config)).data;
-
-    
-
-    return botLogin;
-  } catch (error: any) {
-    throw error.response?.data || error
-  }
-}
 
 async function getBot(wa_id: string, name: string): Promise<BotModel | undefined> {
   // const formatNumber = (phone: string): string => {
@@ -75,40 +56,21 @@ async function getBot(wa_id: string, name: string): Promise<BotModel | undefined
   }
 }
 
-async function getKaweProfile(token: string): Promise<KaweUserProfile> {
+
+
+async function searchBooks(searchString: string, token?: string): Promise<Book[]>{
   try {
-    const config = {
-      method: 'get',
-      url: `${baseURL}/user/profile`,
-      headers: {
-        'Authorization': `Bearer ${token}`, 
-      },
-    };
-    console.log(":::getting Kawe user profile:::")
-    const response: KaweUserProfile = (await axios.request(config)).data;
+    
+    const regex = new RegExp(searchString, 'i'); // 'i' for case-insensitive
 
-    return response
+    const books = await BookModel.find({
+      $or: [
+        { author_name: { $regex: regex } },
+        { title: { $regex: regex } }
+      ]
+    });
 
-  } catch (error: any) {
-    throw error.response?.data || error
-  }
-}
-
-async function searchBooks(query: string, token: string): Promise<GetBooksApiResponse>{
-  try {
-    const config = {
-      method: 'post', // using POST as per your initial example
-      url: `${baseURL}/user/books/search`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      data: JSON.stringify({ query }) // Sending the query in the request body
-    };
-    console.log(":::searching for book through Kawe api:::")
-    const response: GetBooksApiResponse = (await axios.request(config)).data;
-
-    return response;
+    return books;
 
   } catch (error: any) {
     console.log('an error occured while searching for a book')
@@ -116,20 +78,11 @@ async function searchBooks(query: string, token: string): Promise<GetBooksApiRes
   }
 }
 
-async function getAllBooks(): Promise<GetBooksApiResponse>{
+async function getAllBooks(): Promise<Book[]>{
   try {
-    const config = {
-      method: 'get',
-      url: `${baseURL}/user/books/get`,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.KAWE_TOKEN}`
-      },
-    };
-    console.log(":::getting all books through Kawe api:::")
-    const response: GetBooksApiResponse = (await axios.request(config)).data;
+    const books = await BookModel.find({})
 
-    return response;
+    return books;
   } catch (error: any) {
     console.log('an error occured while searching for a book')
     throw error.response?.data || error;
@@ -188,12 +141,12 @@ function convertStringToDate(dateStr: string): Date {
   return new Date(year, month, day);
 }
 
-async function generateGPTPContext( bot: BotModel, orders?: Order[]): Promise<{ childAge: number; questionsAnswers: QuestionsAnswers[]; orderHistory: string[]; bookList: string[]; canGenerate?: boolean | undefined; }> {
+async function generateGPTPContext( bot: BotModel, orders?: OrderI[]): Promise<{ childAge: number; questionsAnswers: QuestionsAnswers[]; orderHistory: string[]; bookList: string[]; canGenerate?: boolean | undefined; }> {
   let books: Book[]
   const selectedChild: string = bot.params.selectedChild as string;
   try {
-    const allBooks = await getAllBooks()
-    books = allBooks.data
+    books = await getAllBooks()
+    
   } catch (error) {
     throw error
   }
@@ -215,4 +168,26 @@ async function generateGPTPContext( bot: BotModel, orders?: Order[]): Promise<{ 
     canGenerate: !child_answers || !child ? false : true
   }
 }
-export { getBot, searchBooks, formatBooksList, isValidInput, isValidFormat2, convertStringToDate, formatChildrenList, generateGPTPContext };
+
+async function check_if_user_cant_make_order(wa_id: string): Promise<boolean> {
+  // Check for unreturned orders
+  const unreturnedOrderCount = await OrderModel.countDocuments({
+      wa_id,
+      returned: false
+  });
+
+  if (unreturnedOrderCount > 0) {
+      return true;
+  }
+
+  // Check if the Bot was created more than two weeks ago
+  const twoWeeksAgo = subWeeks(new Date(), 2);
+  const bot = await Bot.findOne({ wa_id });
+
+  if (bot && bot.createdAt! <= twoWeeksAgo) {
+      return true;
+  }
+
+  return false;
+}
+export { getBot, searchBooks, formatBooksList, isValidInput, isValidFormat2, convertStringToDate, formatChildrenList, generateGPTPContext, check_if_user_cant_make_order };
