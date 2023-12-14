@@ -1,5 +1,4 @@
-// const bookRecommendationQuestions: : Readonly<{q1: string}>= 
-const bookRecommendationQuestions: Readonly<{ q1: string; q2: string; q3: string; q4: string; q5: string; }> = {
+export const bookRecommendationQuestions: Readonly<{ q1: string; q2: string; q3: string; q4: string; q5: string; }> = {
   "q1": "What type of books do you usually enjoy reading? You can mention specific genres like mystery, science fiction, romance, or non-fiction topics that interest you.",
   "q2": "Could you name a few of your favorite authors or books? This will help me understand your reading preferences better.",
   "q3": "Are you looking for a book that matches a particular mood or theme? For example, are you in the mood for something uplifting, thought-provoking, or adventurous?",

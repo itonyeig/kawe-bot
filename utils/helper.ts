@@ -3,6 +3,10 @@ import { Book, GetBooksApiResponse, KaweUserProfile, LoginResponseI } from "../i
 import { Bot, BotModel } from "../model/bot.model";
 import { BotI, INameDob } from "../interface/bot.interface";
 import { MachineState } from "../states/machine.state";
+import { Order } from "../interface/order.interface";
+import { differenceInYears } from "date-fns";
+import { QuestionsAnswers } from "../services/open-ai.service";
+import { bookRecommendationQuestions } from './recommendation-questions';
 
 const baseURL = process.env.KAWE_BASE_URL;
 
@@ -112,6 +116,26 @@ async function searchBooks(query: string, token: string): Promise<GetBooksApiRes
   }
 }
 
+async function getAllBooks(): Promise<GetBooksApiResponse>{
+  try {
+    const config = {
+      method: 'get',
+      url: `${baseURL}/user/books/get`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.KAWE_TOKEN}`
+      },
+    };
+    console.log(":::getting all books through Kawe api:::")
+    const response: GetBooksApiResponse = (await axios.request(config)).data;
+
+    return response;
+  } catch (error: any) {
+    console.log('an error occured while searching for a book')
+    throw error.response?.data || error;
+  }
+}
+
 function formatBooksList(books: Book[]): string {
   const formattedBooks = books.map((book, index) => `👉[${index + 1}] ${book.title} by ${book.author_name}`).join('\n');
   const prompt = "Please select the number corresponding to the book you are interested in:";
@@ -163,4 +187,32 @@ function convertStringToDate(dateStr: string): Date {
 
   return new Date(year, month, day);
 }
-export { getBot, searchBooks, formatBooksList, isValidInput, isValidFormat2, convertStringToDate, formatChildrenList };
+
+async function generateGPTPContext( bot: BotModel, orders?: Order[]): Promise<{ childAge: number; questionsAnswers: QuestionsAnswers[]; orderHistory: string[]; bookList: string[]; canGenerate?: boolean | undefined; }> {
+  let books: Book[]
+  const selectedChild: string = bot.params.selectedChild as string;
+  try {
+    const allBooks = await getAllBooks()
+    books = allBooks.data
+  } catch (error) {
+    throw error
+  }
+  const child = bot.children.find(c => c.name === selectedChild)
+  const child_answers = bot.recommendInfo.filter(qa => qa.childName === child?.name)
+  const orderHistory = orders?.map((order: any) => order.books.title as string) || []
+  const bookList = books.map(book => `${book.title} by ${book.author_name}`)
+
+  const questionsAnswers = child_answers.map(qa => ({ 
+    question: bookRecommendationQuestions[qa.q], 
+    answer: qa.answer 
+  } as QuestionsAnswers))
+ 
+  return {
+    childAge: differenceInYears(new Date(), child?.dob as Date),
+    questionsAnswers,
+    orderHistory,
+    bookList,
+    canGenerate: !child_answers || !child ? false : true
+  }
+}
+export { getBot, searchBooks, formatBooksList, isValidInput, isValidFormat2, convertStringToDate, formatChildrenList, generateGPTPContext };

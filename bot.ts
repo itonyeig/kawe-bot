@@ -3,8 +3,10 @@ import { BotModel } from "./model/bot.model";
 import axios from 'axios';
 import Machine from "./machines/machine";
 import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
-import { formatChildrenList, isValidInput } from "./utils/helper";
+import { formatChildrenList, generateGPTPContext, isValidInput } from "./utils/helper";
 import Recommendation_States from "./states/recommendation.states";
+import { getBookRecommendations } from "./services/open-ai.service";
+import BookSearchState from "./states/bookSearchStates";
 
 
 export default class Bot {
@@ -26,6 +28,7 @@ export default class Bot {
     whatsapp_phone_id: string;
     whatsapp_number: string;
     default_message: string;
+    default_book_search_message = 'What book will you like to search for? Kindly enter the book title or book author.'
 
     private token = process.env.WHATSAPP_TOKEN;
 
@@ -149,7 +152,7 @@ export default class Bot {
         
           case 2:
             await this.transition(MachineState.AWAITING_BOOK_SEARCH_PROMPT);
-            await this.transmitMessage('What book will you like to search for? Kindly enter the book title or book author.');
+            await this.transmitMessage(this.default_book_search_message);
             break;
         
           default:
@@ -205,6 +208,24 @@ export default class Bot {
           );
         } catch (error) {
           console.log("Transition", error);
+          throw error
+        }
+      }
+
+
+      async recommendations(){
+        try {
+          const context = await generateGPTPContext(this.botProfile)
+          if (!context.canGenerate) {
+              await this.transition(MachineState.IDLE)
+              await this.transmitMessage(`an error occured`)
+              return
+          } 
+          const recommendation = await getBookRecommendations(context.childAge, context.bookList, context.orderHistory, context.questionsAnswers)
+          await this.transition(BookSearchState.AWAITING_BOOK_SEARCH_PROMPT)
+          await this.transmitMessage(`${recommendation}\n\nPlease enter the title or author of a book we recommended, or feel free to search for any other book or author of your choice`)
+        } catch (error) {
+          console.log(error)
           throw error
         }
       }
