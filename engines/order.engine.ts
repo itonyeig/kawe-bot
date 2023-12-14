@@ -5,7 +5,7 @@ import { MachineState } from "../states/machine.state";
 import { formatBooksList, isValidInput, searchBooks } from "../utils/helper";
 
 
-export default class BookSearchEngine {
+export default class OrderEngine {
     bot: Bot;
     botProfile: BotModel
 

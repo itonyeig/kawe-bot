@@ -6,7 +6,7 @@ import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
 import { formatChildrenList, generateGPTPContext, isValidInput } from "./utils/helper";
 import Recommendation_States from "./states/recommendation.states";
 import { getBookRecommendations } from "./services/open-ai.service";
-import BookSearchState from "./states/bookSearchStates";
+import OrderState from "./states/order.states";
 
 
 export default class Bot {
@@ -215,6 +215,7 @@ export default class Bot {
 
       async recommendations(){
         try {
+          await this.transmitMessage('thinking...')
           const context = await generateGPTPContext(this.botProfile)
           if (!context.canGenerate) {
               await this.transition(MachineState.IDLE)
@@ -222,14 +223,13 @@ export default class Bot {
               return
           } 
           const recommendation = await getBookRecommendations(context.childAge, context.bookList, context.orderHistory, context.questionsAnswers)
-          await this.transition(BookSearchState.AWAITING_BOOK_SEARCH_PROMPT)
+          await this.transition(OrderState.AWAITING_BOOK_SEARCH_PROMPT)
           await this.transmitMessage(`${recommendation}\n\nPlease enter the title or author of a book we recommended, or feel free to search for any other book or author of your choice`)
         } catch (error) {
           console.log(error)
           throw error
         }
       }
-
     
 
     async transmitMessage(msg: string){

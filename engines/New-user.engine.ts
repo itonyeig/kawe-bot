@@ -1,10 +1,7 @@
 import Bot from "../bot";
 import { BotModel } from "../model/bot.model";
-import { getBookRecommendations } from "../services/open-ai.service";
-import BookSearchState from "../states/bookSearchStates";
-import { MachineState } from "../states/machine.state";
 import New_User_States from "../states/new-user.states";
-import { convertStringToDate, generateGPTPContext, isValidFormat2 } from "../utils/helper";
+import { convertStringToDate, isValidFormat2 } from "../utils/helper";
 
 export class New_User_Engine{
     bot: Bot;
