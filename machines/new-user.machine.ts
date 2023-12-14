@@ -1,12 +1,14 @@
 import Bot from "../bot";
 import { New_User_Engine } from "../engines/New-user.engine";
+import BookSearchState from "../states/bookSearchStates";
+import { MachineStateType } from "../states/machine.state";
 import New_User_States from "../states/new-user.states";
 import { NonEmptyArray } from "../types/not-empty-array.types";
 
 
 type New_User_MachineHandler = {
     // nextStates: NonEmptyArray<New_User_States> ; 
-    nextStates: New_User_States[] ; 
+    nextStates: MachineStateType[] ; 
     handle: () => Promise<void>;
   };
 
@@ -44,7 +46,7 @@ export const new_user_machine = (bot: Bot): Record<New_User_States, New_User_Mac
             }
           },
           [New_User_States.FIFTH_QUESTION]: {
-            nextStates: [],
+            nextStates: [BookSearchState.AWAITING_BOOK_SEARCH_PROMPT],
             handle: async () => {
               await new_user_engine.save_fifth_question_then_recommend()
             }

@@ -1,7 +1,10 @@
 import Bot from "../bot";
 import { BotModel } from "../model/bot.model";
+import { getBookRecommendations } from "../services/open-ai.service";
+import BookSearchState from "../states/bookSearchStates";
+import { MachineState } from "../states/machine.state";
 import New_User_States from "../states/new-user.states";
-import { convertStringToDate, isValidFormat2 } from "../utils/helper";
+import { convertStringToDate, generateGPTPContext, isValidFormat2 } from "../utils/helper";
 
 export class New_User_Engine{
     bot: Bot;
@@ -77,7 +80,7 @@ export class New_User_Engine{
         await this.bot.transition(New_User_States.FOURTH_QUESTION)
         await this.bot.transmitMessage(`Got it, that's very helpful to know. The mood or theme can really shape the reading experience. Now, let's explore another aspect:\n\nWhat is ${childName}'s main purpose for reading at the moment? Are they looking to learn something new, escape into a different world, or perhaps seeking a book for personal development?`)
         } catch (error: any) {
-            console.log('save_second_question', error.message)
+            console.log('save_third_question', error.message)
         }
     }
     async save_fourth_question(){
@@ -93,7 +96,7 @@ export class New_User_Engine{
         await this.bot.transition(New_User_States.FIFTH_QUESTION)
         await this.bot.transmitMessage(`Thanks for sharing that insight. It's important to align our recommendations with ${childName}'s reading goals. Now, for our last question: \n\nDoes ${childName} have any preferences regarding the length or complexity of the books they read? For example, do they lean towards quick, easy reads, or are they comfortable with longer, more detailed narratives`)
         } catch (error: any) {
-            console.log('save_second_question', error.message)
+            console.log('save_fourth_question', error.message)
         }
     }
     async save_fifth_question_then_recommend(){
@@ -106,10 +109,11 @@ export class New_User_Engine{
                 childName
             })
         await this.botProfile.save()
-        // await this.bot.transition(New_User_States.FIFTH_QUESTION)
-        await this.bot.transmitMessage(`alright`)
+        await this.bot.recommendations()
+        return
+        return;
         } catch (error: any) {
-            console.log('save_second_question', error.message)
+            console.log('save_fifth_question', error)
         }
     }
 }

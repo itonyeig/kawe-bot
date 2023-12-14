@@ -1,7 +1,5 @@
 import Bot from "../bot";
 import { BotModel } from "../model/bot.model";
-import New_User_States from "../states/new-user.states";
-import Recommendation_States from "../states/recommendation.states";
 import { formatChildrenList, isValidFormat2, isValidInput } from "../utils/helper";
 
 export class Recommendation_Engine{
@@ -20,7 +18,12 @@ export class Recommendation_Engine{
             return
         }
         try {
-            
+            const index = +this.bot.userMessage - 1
+            this.botProfile.params.selectedChild = this.botProfile.children[index].name
+
+            await this.botProfile.save()
+            await this.bot.recommendations()
+            return
         } catch (error: any) {
             console.log('err, handle_child_selection_for_recommendation: ', error.message)
         }
