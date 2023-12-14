@@ -9,8 +9,12 @@ export interface BotI {
     previousState?: MachineStateType;
     params: Params;
     active: boolean;
+    recommendationInfoCompleted: boolean;
+    children: INameDob[];
+    tier?: string
     createdAt?: Date;
     updatedAt?: Date;
+    recommendInfo: RecomendationInfoInterface[]
 
 }
 
@@ -19,4 +23,15 @@ export interface SearchedBooks{
     title: string;
     author: string;
     id: number
+}
+
+export interface INameDob  {
+    name: string;
+    dob: Date;
+}
+
+export interface RecomendationInfoInterface {
+    q: 'q1' | 'q2' | 'q3' | 'q4' | 'q5';
+    answer: string,
+    childName: string
 }

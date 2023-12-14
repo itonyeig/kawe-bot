@@ -1,5 +1,5 @@
 import Bot from "../bot";
-import BookSearchEngine from "../engines/BookSearchEngine";
+import BookSearchEngine from "../engines/book-search.engine";
 import BookSearchState from "../states/bookSearchStates";
 
 
@@ -9,7 +9,7 @@ type BookMachineHandler = {
   };
 
 
-  export const bookStates = (bot: Bot): Record<BookSearchState, BookMachineHandler> => {
+  export const book_search_machine = (bot: Bot): Record<BookSearchState, BookMachineHandler> => {
     const bookEngine = new BookSearchEngine(bot);
   
     return {
@@ -30,4 +30,3 @@ type BookMachineHandler = {
     };
   };
 
-  export default bookStates

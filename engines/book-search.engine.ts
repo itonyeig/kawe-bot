@@ -2,7 +2,7 @@ import Bot from "../bot";
 import { SearchedBooks } from "../interface/bot.interface";
 import { BotModel } from "../model/bot.model";
 import { MachineState } from "../states/machine.state";
-import { formatBooksList, searchBooks } from "../utils/helper";
+import { formatBooksList, isValidInput, searchBooks } from "../utils/helper";
 
 
 export default class BookSearchEngine {
@@ -33,6 +33,7 @@ export default class BookSearchEngine {
                 return
             }
             const message = formatBooksList(kawe_books.data)
+            
             const searchResults = kawe_books.data.map((book, index) => ({
                 author: book.author_name,
                 id: book.id,
@@ -40,6 +41,7 @@ export default class BookSearchEngine {
                 num: index + 1
             } as SearchedBooks));
             const stringifiedSearchedBooks = JSON.stringify(searchResults)
+            console.log('response from searching for books kawe api call: ', stringifiedSearchedBooks)
             this.bot.botProfile.params.stringifiedSearchedBooks = stringifiedSearchedBooks
             this.bot.botProfile.params.searchMessageToUser = message
             await this.bot.botProfile.save();
@@ -56,7 +58,7 @@ export default class BookSearchEngine {
         const searchBooks: SearchedBooks[] = JSON.parse(this.botProfile.params.stringifiedSearchedBooks as string)
         
         try {
-            if (!this.isValidInput(msg, searchBooks.length)) {
+            if (!isValidInput(msg, searchBooks.length)) {
                 await this.bot.transmitMessage(`That was not a valid response\n\n${this.botProfile.params.searchMessageToUser}`)
                 return
             }
@@ -67,9 +69,6 @@ export default class BookSearchEngine {
         }
       }
 
-       isValidInput(input: number, arrayLength: number) {
-    
-        return !isNaN(input) && input >= 1 && input <= arrayLength;
-    }
+       
 
 }
