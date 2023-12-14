@@ -60,13 +60,10 @@ export interface GetBooksApiResponse {
 }
 
 export interface Book {
-  id: number;
-  uuid: string;
-  user_id: number;
   category: string;
   title: string;
   author_name: string;
-  publish_date: Date;
+  publish_date: string;
   language: string;
   page_count: number;
   quantity_available: number;

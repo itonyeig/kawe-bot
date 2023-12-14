@@ -5,5 +5,3 @@ export const bookRecommendationQuestions: Readonly<{ q1: string; q2: string; q3:
   "q4": "What is your main purpose for reading right now? Are you looking to learn something new, escape into a different world, or perhaps you're seeking a book for professional development?",
   "q5": "Do you have a preference for the length or complexity of the books you read? For example, do you prefer quick, easy reads, or are you okay with longer, more detailed narratives?"
 }
-
-  

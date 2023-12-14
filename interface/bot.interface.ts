@@ -22,7 +22,7 @@ export interface SearchedBooks{
     num: number;
     title: string;
     author: string;
-    id: number
+    id: string
 }
 
 export interface INameDob  {
