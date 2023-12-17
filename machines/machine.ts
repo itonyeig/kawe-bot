@@ -6,6 +6,8 @@ import OrderState from '../states/order.states';
 import Recommendation_States from '../states/recommendation.states';
 import { recommendation_machine } from './recommendation.machine';
 import New_User_States from '../states/new-user.states';
+import { payment_machine } from './payment.machine';
+import PaymentStates from '../states/paymentStates';
 
 type MachineHandler = {
     nextStates: MachineStateType[]; 
@@ -23,14 +25,15 @@ export const machine = (bot: Bot): Record<MachineStateType, MachineHandler> =>  
       },
     },
     [MachineState.AWAITING_WAKE_FROM_IDLE_RESPONSE]: {
-      nextStates: [OrderState.AWAITING_BOOK_SEARCH_PROMPT, Recommendation_States.AWAITING_CHILD_NAME, New_User_States.NEW_CHILD],
+      nextStates: [OrderState.AWAITING_BOOK_SEARCH_PROMPT, Recommendation_States.AWAITING_CHILD_NAME, New_User_States.NEW_CHILD, PaymentStates.SELECT_PAYMENT_TIER, PaymentStates.AWAITING_EMAIL],
       handle: async () => {
         await bot.handle_wake_from_idle()
       },
     },
     ...new_user_machine(bot),
     ...order_machine(bot),
-    ...recommendation_machine(bot)
+    ...recommendation_machine(bot),
+    ...payment_machine(bot),
     // ... integrate other state machines similarly
   };
 };

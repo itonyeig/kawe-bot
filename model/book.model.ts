@@ -1,6 +1,6 @@
 
 
-import { Book } from '../interface/kawe.interface';
+import { Book } from '../interface/book.interface';
 import { Schema, model, Document } from 'mongoose';
 
 export interface BookModelI extends Book, Document {}
@@ -42,6 +42,9 @@ const BookSchema = new Schema<BookModelI>({
   image_url: {
     type: String,
   },
+  age_range: {
+    type: [String]
+  }
 }, {
   timestamps: true,
   strict: "throw",

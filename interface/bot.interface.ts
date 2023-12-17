@@ -1,5 +1,6 @@
 import { MachineStateType } from "../states/machine.state";
 import { Params } from './params.interface';
+import { Tier } from "./payment-interface";
 
 
 export interface BotI {
@@ -11,10 +12,12 @@ export interface BotI {
     active: boolean;
     recommendationInfoCompleted: boolean;
     children: INameDob[];
-    tier?: string
+    tier?: Tier
     createdAt?: Date;
     updatedAt?: Date;
-    recommendInfo: RecomendationInfoInterface[]
+    recommendInfo: RecomendationInfoInterface[];
+    lastPaymentMade?: Date;
+    email?: string;
 
 }
 
@@ -28,10 +31,11 @@ export interface SearchedBooks{
 export interface INameDob  {
     name: string;
     dob: Date;
+    _id?: string
 }
 
 export interface RecomendationInfoInterface {
     q: 'q1' | 'q2' | 'q3' | 'q4' | 'q5';
     answer: string,
-    childName: string
+    child: string
 }

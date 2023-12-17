@@ -1,18 +1,37 @@
-import axios from "axios";
-import { Book, GetBooksApiResponse, KaweUserProfile, LoginResponseI } from "../interface/kawe.interface";
+import { Book } from "../interface/book.interface";
 import { Bot, BotModel } from "../model/bot.model";
 import { BotI, INameDob } from "../interface/bot.interface";
 import { MachineState } from "../states/machine.state";
 import { OrderI } from "../interface/order.interface";
-import { differenceInYears, subWeeks } from "date-fns";
+import { addWeeks, differenceInYears, subMonths, addMonths } from "date-fns";
 import { QuestionsAnswers } from "../services/open-ai.service";
 import { bookRecommendationQuestions } from './recommendation-questions';
 import { BookModel } from "../model/book.model";
-import { OrderModel } from "../model/order.model";
+import { randomBytes } from "crypto";
+import { PaymentI, Tier } from "../interface/payment-interface";
+import { PaymentModel } from "../model/payment.model";
+import { initializePayment } from "../services/paystack.service";
 
-const baseURL = process.env.KAWE_BASE_URL;
+export enum Check_User_Payment_Status {
+  FREE_TRIAL="You are on a free trial and are only allowed 1 book",
+  UNRETURN_BOOKS= "The selected child has two unrerned books. Please return the books to proceed",
+  EXPIRED="Your current subscription has expired",
+  NULL=""
+}
 
-
+const months = 6;
+export const number_of_questions = 5;
+export const max_tier_1 = 2; // maximum number of children that can be on a tier 2 account
+export const min_tier_2 = 3; // minimin number of children that can be on a tier 2 account
+export const teir_one_amount = 4000  * months // for 2 children. 2000 per child
+export const teir_two_amount = 1800  * months // per child
+export const book_due_in_weeks = 2
+export const accountPaidFor = (amount: number): Tier => {
+  // Deduct 1.5% from the amount
+  const adjustedAmount = amount * (1 - 0.015);
+  // Compare the adjusted amount with tier one amount
+  return adjustedAmount === teir_one_amount ? Tier.ONE : Tier.TWO;
+};
 
 async function getBot(wa_id: string, name: string): Promise<BotModel | undefined> {
   // const formatNumber = (phone: string): string => {
@@ -40,7 +59,9 @@ async function getBot(wa_id: string, name: string): Promise<BotModel | undefined
       const userData: BotI = {
         wa_id,
         name,
-        params: {},
+        params: {
+          recommendInfo: []
+        },
         active: false,
         recommendationInfoCompleted: false,
         children: [],
@@ -56,9 +77,7 @@ async function getBot(wa_id: string, name: string): Promise<BotModel | undefined
   }
 }
 
-
-
-async function searchBooks(searchString: string, token?: string): Promise<Book[]>{
+async function searchBooks(searchString: string): Promise<Book[]>{
   try {
     
     const regex = new RegExp(searchString, 'i'); // 'i' for case-insensitive
@@ -129,7 +148,6 @@ function isValidFormat2(inputString: string) {
          dateObject.getFullYear() === year;
 }
 
-
 function convertStringToDate(dateStr: string): Date {
   const parts = dateStr.split("-");
   // JavaScript's Date constructor expects year, month, and day
@@ -139,6 +157,12 @@ function convertStringToDate(dateStr: string): Date {
   const day = parseInt(parts[0], 10);
 
   return new Date(year, month, day);
+}
+
+function calculateTotalAmountIncludingFees(amountReceived: number): number {
+  const multipliedAmount = amountReceived * 100;
+  const fee = multipliedAmount * 0.015;
+  return multipliedAmount + fee;
 }
 
 async function generateGPTPContext( bot: BotModel, orders?: OrderI[]): Promise<{ childAge: number; questionsAnswers: QuestionsAnswers[]; orderHistory: string[]; bookList: string[]; canGenerate?: boolean | undefined; }> {
@@ -151,7 +175,7 @@ async function generateGPTPContext( bot: BotModel, orders?: OrderI[]): Promise<{
     throw error
   }
   const child = bot.children.find(c => c.name === selectedChild)
-  const child_answers = bot.recommendInfo.filter(qa => qa.childName === child?.name)
+  const child_answers = bot.recommendInfo.filter(qa => qa.child === child?._id)
   const orderHistory = orders?.map((order: any) => order.books.title as string) || []
   const bookList = books.map(book => `${book.title} by ${book.author_name}`)
 
@@ -169,25 +193,106 @@ async function generateGPTPContext( bot: BotModel, orders?: OrderI[]): Promise<{
   }
 }
 
-async function check_if_user_cant_make_order(wa_id: string): Promise<boolean> {
-  // Check for unreturned orders
-  const unreturnedOrderCount = await OrderModel.countDocuments({
-      wa_id,
-      returned: false
+const genrateTransactionRef = () => randomBytes(6).toString("hex");
+
+
+async function createPayment(wa_id: string, tier: Tier, amount: number, email: string){
+  const reference =  genrateTransactionRef();
+  const data: PaymentI = {
+    wa_id,
+    tier,
+    // phone_number_id,
+    amount,
+    reference,
+    payment_received: false,
+    
+    
+  }
+
+  await PaymentModel.create(data)
+  const paymentLink = await initializePayment(amount, reference, email)
+  return paymentLink
+}
+
+async function acceptPayment(reference: string) {
+  const data = await PaymentModel.findOneAndUpdate({
+    reference
+  }, 
+  {
+    payment_received: true,
+    valid_till: addMonths(new Date(), months)
+  },
+  {new: true}
+  )
+
+  return data
+  
+}
+
+function isValidEmail(email: string) {
+  const regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return regex.test(email);
+}
+
+function calculateOriginalAmountFromTotal(totalAmountWithFees: number): number {
+  // Remove the 1.5% fee. We divide by 1.015 because the total amount includes the 1.5% fee
+  const amountMinusFee = totalAmountWithFees / 1.015;
+
+  // Convert from kobo to naira by dividing by 100
+  const originalAmount = amountMinusFee / 100;
+
+  return originalAmount;
+}
+
+function countDigitPatterns(inputString:string) {
+  const pattern = /\[\d+\]/g;
+  const matches = inputString.match(pattern);
+  return matches ? matches.length : 0;
+}
+
+function userOnFreeTrial(botProfile: BotModel){
+  const twoWeeks = addWeeks(new Date(), 2);
+  // console.log(botProfile.createdAt! <= twoWeeks, !botProfile?.active)
+  return botProfile.createdAt! <= twoWeeks && !botProfile?.active
+}
+
+
+async function subscription_is_still_valid (botProfile: BotModel) {
+  const tier = botProfile.tier;
+  if (!tier) {
+    return false;
+  }
+  if (userOnFreeTrial(botProfile)) {
+    return true
+  }
+  const sixMonthsAgo = subMonths(new Date(), months)
+
+  const validPaymentCount = await PaymentModel.countDocuments({
+      wa_id: botProfile.wa_id,
+      tier,
+      payment_received: true,
+      valid_till: { $gte: sixMonthsAgo }
   });
 
-  if (unreturnedOrderCount > 0) {
-      return true;
-  }
+  return validPaymentCount > 0;
 
-  // Check if the Bot was created more than two weeks ago
-  const twoWeeksAgo = subWeeks(new Date(), 2);
-  const bot = await Bot.findOne({ wa_id });
 
-  if (bot && bot.createdAt! <= twoWeeksAgo) {
-      return true;
-  }
-
-  return false;
-}
-export { getBot, searchBooks, formatBooksList, isValidInput, isValidFormat2, convertStringToDate, formatChildrenList, generateGPTPContext, check_if_user_cant_make_order };
+};
+export { 
+  getBot, 
+  searchBooks, 
+  formatBooksList, 
+  isValidInput, 
+  isValidFormat2, 
+  convertStringToDate, 
+  formatChildrenList, 
+  generateGPTPContext, 
+  createPayment,
+  acceptPayment,
+  calculateTotalAmountIncludingFees,
+  isValidEmail,
+  subscription_is_still_valid,
+  calculateOriginalAmountFromTotal,
+  countDigitPatterns,
+  userOnFreeTrial,
+};

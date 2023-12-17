@@ -3,10 +3,15 @@ import { BotModel } from "./model/bot.model";
 import axios from 'axios';
 import Machine from "./machines/machine";
 import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
-import { check_if_user_cant_make_order, formatChildrenList, generateGPTPContext, isValidInput } from "./utils/helper";
+import { Check_User_Payment_Status, book_due_in_weeks, countDigitPatterns, formatChildrenList, generateGPTPContext, isValidInput, max_tier_1, number_of_questions, subscription_is_still_valid, userOnFreeTrial } from "./utils/helper";
 import Recommendation_States from "./states/recommendation.states";
 import { getBookRecommendations } from "./services/open-ai.service";
 import OrderState from "./states/order.states";
+import { messages } from "./utils/messages";
+import { subWeeks } from "date-fns";
+import { OrderModel } from "./model/order.model";
+import { Tier } from "./interface/payment-interface";
+import PaymentStates from "./states/paymentStates";
 
 
 export default class Bot {
@@ -27,7 +32,7 @@ export default class Bot {
     userMessage: string;
     whatsapp_phone_id: string;
     whatsapp_number: string;
-    default_message: string;
+    default_message = `${messages.default_message}${messages.selection}\n\nType 'hello' at any point to come back here`;
     default_book_search_message = 'What book will you like to search for? Kindly enter the book title or book author.'
 
     private token = process.env.WHATSAPP_TOKEN;
@@ -38,8 +43,7 @@ export default class Bot {
         this.userMessage = botAttributes.msg as string;
         this.whatsapp_phone_id = botAttributes.whatsapp_phone_id;
         this.whatsapp_number = botAttributes.whatsapp_number;
-        this.default_message = `Please choose from the following options:\n👉[1] Allow us to suggest a book for you\n👉[2]Search our library for a specific book.
-        `
+        console.log('whatsappId - ', this.whatsapp_phone_id)
     }
 
     async run() {
@@ -55,7 +59,12 @@ export default class Bot {
               // && this.currentState !== MachineState.TEMP_USER_HOME
               ) {
             await this.setDefaultState();
-          }    
+          } 
+          
+          if (this.currentState === MachineState.IDLE) {
+            await this.rebootBot()
+            
+          }
       
           // check if bot has current state OR set current state to idle
           return this.machine.handle()
@@ -86,12 +95,11 @@ export default class Bot {
           return false;
         }
       }
-    
+
       private async setDefaultState() {
         if (
           !this.withinBotSession() ||
-          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in(NEW_USER_STATES)
-          // || this.currentState === MachineState.IDLE
+          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in_state(PaymentStates.PROCESSING_PAYMENT)
           )
         ){
           
@@ -108,7 +116,9 @@ export default class Bot {
       async rebootBot(){
         console.log("reseting machine ....");
         try {
-            this.botProfile.params = {}
+            this.botProfile.params = {
+              recommendInfo: []
+            }
             await this.botProfile.save()
             if (this.currentState !== MachineState.IDLE) {
               await this.transition(MachineState.IDLE)
@@ -119,8 +129,36 @@ export default class Bot {
         }
       }
 
-      private is_currently_in<T extends Record<string, string>>(stateEnum: T): boolean {
-        return Object.values(stateEnum).includes(this.currentState as string);
+      /**
+       * Checks if the current state matches any of the provided state values or state objects.
+       * 
+       * This function accepts a variable number of arguments, each of which can either be a string representing a single state,
+       * or an object where each property value is a state. The function iterates through these arguments to determine
+       * if the current state (`this.currentState`) matches any of the provided states.
+       * 
+       * @param {...Array<string | Record<string, string>>} states - A rest parameter that can take multiple arguments.
+       * Each argument can be either a string (representing an individual state) or an object (representing multiple states).
+       * 
+       * - If an argument is an object, the function checks if any value within this object matches `this.currentState`.
+       * - If an argument is a string, it directly compares this string with `this.currentState`.
+       * 
+       * The function returns `true` as soon as it finds a match. If no matches are found after checking all arguments,
+       * it returns `false`.
+       * 
+       * @returns {boolean} - Returns `true` if `this.currentState` matches any of the provided states, otherwise returns `false`.
+       * 
+       */
+      private is_currently_in_state(...states: Array<string | Record<string, string>>): boolean {
+        for (const state of states) {
+          if (typeof state === 'object') {
+              if (Object.values(state).includes(this.currentState as string)) {
+                  return true;
+              }
+          } else if (this.currentState === state) {
+              return true;
+          }
+      }
+      return false;
     }
 
     async handleDefault(){
@@ -134,19 +172,21 @@ export default class Bot {
     }
 
     async handle_wake_from_idle() {
-      if (!isValidInput(+this.userMessage, 2)) {
+      if (!isValidInput(+this.userMessage, countDigitPatterns(this.default_message))) {
           await this.transmitMessage(`That was not a valid response\n\n${this.default_message}`)
           return;
       }
       try {
+        
         switch (+this.userMessage) {
           case 1:
+            // const recommendInfo 
             if (this.botProfile.recommendationInfoCompleted) {
               // await this.transition(Recommendation_States.)
             } else if (this.botProfile.children.length === 0) {
               await this.transition(New_User_States.NEW_CHILD);
-              await this.transmitMessage("Please provide us with some basic details about the child for whom you'd like to order a book:\n\nName, Date of Birth (dd-mm-yyyy)\n\nexample: Amamda, 23-01-2012");
-            } else if (this.botProfile.children.length > 0 && this.botProfile.recommendInfo.length >=5) {
+              await this.transmitMessage(messages.new_child);
+            } else if (this.botProfile.children.length > 0 && this.botProfile.recommendInfo.length >=number_of_questions) {
               const message = formatChildrenList(this.botProfile.children)
               await this.transition(Recommendation_States.AWAITING_CHILD_NAME)
               await this.transmitMessage(message)
@@ -154,12 +194,56 @@ export default class Bot {
               await this.transmitMessage(':::::::::');
             }
             break;
-        
+
           case 2:
             await this.transition(MachineState.AWAITING_BOOK_SEARCH_PROMPT);
             await this.transmitMessage(this.default_book_search_message);
             break;
-        
+
+          case 3:
+            const tier = this.botProfile.tier;
+            const wa_id = this.botProfile.wa_id;
+            const is_sub_valid = await subscription_is_still_valid(this.botProfile)
+            console.log(is_sub_valid)
+            if (tier === Tier.ONE && this.botProfile.children.length < max_tier_1 && is_sub_valid) {
+              await this.transition(New_User_States.NEW_CHILD);
+              await this.transmitMessage(messages.new_child);
+            } else if(tier === Tier.ONE && this.botProfile.children.length >= max_tier_1 && is_sub_valid){
+              await this.transition(MachineState.IDLE)
+              await this.transmitMessage('You have the maximum amount of children that can be on a tier 1 account');
+            }
+            else if(tier === Tier.TWO && is_sub_valid){
+              // please this is important... i will add code here later
+            }
+            else if (userOnFreeTrial(this.botProfile) && this.botProfile.children.length === 0){
+              await this.transition(New_User_States.NEW_CHILD);
+              await this.transmitMessage(messages.new_child);
+            }
+            else if(!userOnFreeTrial(this.botProfile) || this.botProfile.children.length !== 0){
+              if (this.botProfile.email) {
+                await this.transition(MachineState.SELECT_PAYMENT_TIER);
+                await this.transmitMessage(`${messages.free_trial_over}\n\n${messages.default_payment_message}`);
+                break;
+              } else {
+                await this.transition(MachineState.AWAITING_EMAIL)
+                await this.transmitMessage(`${messages.free_trial_over}\n\n${messages.request_email}`)
+                break;
+              }
+            }
+            else {
+              await this.transmitMessage('Something went wrong');
+            }
+            break;
+          case 4:
+            if (this.botProfile.email) {
+              await this.transition(MachineState.SELECT_PAYMENT_TIER);
+              await this.transmitMessage(messages.default_payment_message);
+              break;
+            } else {
+              await this.transition(MachineState.AWAITING_EMAIL)
+              await this.transmitMessage(messages.request_email)
+              break;
+            }
           default:
             await this.transmitMessage('Request could not be processed');
             break;
@@ -169,8 +253,6 @@ export default class Bot {
         console.log("err occured in handle_default ", error)
       }
     }
-
-  
 
 
     public async transition(newState: MachineStateType) {
@@ -208,6 +290,10 @@ export default class Bot {
           this.botProfile = await this.botProfile.save();
           // Debug messages
           // console.log("after ", this.profile.botMode[this.mode]);
+
+          if (this.botProfile.currentState === MachineState.IDLE) {
+            await this.rebootBot()
+          }
           console.log(
             `Successful transition from ${this.previoustState} to ${newState}`
           );
@@ -220,8 +306,9 @@ export default class Bot {
 
       async recommendations(){
         try {
-          if (await check_if_user_cant_make_order(this.whatsapp_number)) {
-            await this.transmitMessage('Apologies, but it appears that you either have books that are yet to be returned or there are pending payments on your account.')
+          const checker = await this.check_if_user_can_make_order()
+          if (!checker.move_on) {
+            await this.transmitMessage(checker.message || "Could not process")
             return
           }
           await this.transmitMessage('Loading...')
@@ -270,4 +357,106 @@ export default class Bot {
           throw error
         }
     }
+
+    async transmitTemplateMessage(templateName: string, recipientNumber: string) {
+      try {
+          const whatsappPhoneId = process.env.TEMPLATE_PHONE_NUMBER_ID;
+  
+          await axios.post(`https://graph.facebook.com/v17.0/${whatsappPhoneId}/messages`, {
+              messaging_product: "whatsapp",
+              to: recipientNumber,
+              type: "template",
+              template: {
+                  name: templateName,
+                  language: { code: "en_US" }
+              }
+          }, {
+              headers: {
+                  'Authorization': `Bearer ${this.token}`,
+                  'Content-Type': 'application/json'
+              }
+          });
+  
+          console.log("Transmitted template message:", templateName);
+  
+      } catch (error: any) {
+          if (error.response && error.response.data && error.response.data.error) {
+              console.log('transmitTemplateMessage error', error.response.data.error);
+          } else {
+              console.log('transmitTemplateMessage error', error);
+          }
+          throw error;
+      }
+  }
+
+
+  async check_if_user_can_make_order(): Promise<{move_on: boolean, message: Check_User_Payment_Status}> {
+    const selectedChild = this.botProfile.params.selectedChild
+    const selectedChildObj = this.botProfile.children.find(child => child.name === selectedChild)
+  
+  
+    try {
+  
+      // const twoWeeksAgo = subWeeks(new Date(), 2);
+      const onFreeTrial = userOnFreeTrial(this.botProfile)
+      const tier = this.botProfile?.tier as Tier
+      // const selectedChild = this.botProfile.children.find(child => child.name === selectedChild);
+      if (!selectedChildObj) {
+          throw new Error('Selected child not found');
+      }
+  
+      // Check if the user can order for the selected child
+      const ordersForChild = await OrderModel.countDocuments({
+          wa_id: this.botProfile.wa_id,
+          child: selectedChildObj?._id,
+          returned: false,
+          // fulfilled: true,
+      });
+
+      let move_on = false
+      let message = Check_User_Payment_Status.NULL
+
+      if (onFreeTrial) {
+          // User on free trial can order one book for one child
+          move_on = ordersForChild < 1, 
+          message = move_on ? Check_User_Payment_Status.NULL : Check_User_Payment_Status.FREE_TRIAL;
+
+      } else if (await subscription_is_still_valid(this.botProfile)){
+        move_on = ordersForChild < book_due_in_weeks
+        message = move_on ? Check_User_Payment_Status.NULL : Check_User_Payment_Status.UNRETURN_BOOKS;
+
+        // switch (tier) {
+          // case Tier.ONE:
+          //     // Tier 1: User can order two books for a child in 2 weeks
+          //     return ordersForChild < book_due_in_weeks;
+          // case Tier.TWO:
+          //     // Additional logic for Tier 2 if needed
+          //     break;
+          // Handle other tiers if necessary
+          // default:
+          //   return false;
+          //   break;
+        // }
+
+      } else {
+        // set bot to in-active as subscription and free trial are up
+        this.botProfile.active = false;
+        await this.botProfile.save()
+        
+      }
+
+      if (!move_on) {
+        await this.transition(MachineState.IDLE)
+      }
+      return {
+        move_on,
+        message
+      }
+  } catch (error) {
+      console.error('Error checking order eligibility:', error);
+      throw error;
+  }
+  
+  }
+  
 }
