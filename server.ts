@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 import express, { Application, Request, Response } from "express";
 import mongoose from "mongoose";
-import { whatsappGET, whatsappPOST } from "./request.handler";
+import { paystack, whatsappGET, whatsappPOST } from "./request.handler";
 import protectServer from "./utils/config";
 import { getBot } from "./utils/helper";
 import morgan from 'morgan';
@@ -37,11 +37,13 @@ async function initializeApp(){
       res.json({ message: "Kawe bot server is up",  });
     });
     
-
+  
     // WhatsApp Callback URL for server verification
-    app.get("/webhook/whatsapp", whatsappGET);
+    app.get("/950bf849/webhook/whatsapp", whatsappGET);
 
-    app.post("/webhook/whatsapp", whatsappPOST);
+    app.post("/950bf849/webhook/whatsapp", whatsappPOST)
+    ;
+    app.post("/xqddcb8e/webhook/paystack", paystack);
 
     app.listen(port, () => console.log(`Kawe bot is running on port ${port}`));
   } catch (err) {

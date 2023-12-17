@@ -2,6 +2,7 @@ import Bot from "../bot";
 import { BotModel } from "../model/bot.model";
 import New_User_States from "../states/new-user.states";
 import { convertStringToDate, isValidFormat2 } from "../utils/helper";
+import { messages } from "../utils/messages";
 
 export class New_User_Engine{
     bot: Bot;
@@ -14,13 +15,19 @@ export class New_User_Engine{
 
     async handle_name_and_dob(){
         if (!isValidFormat2(this.bot.userMessage)) {
-            await this.bot.transmitMessage("Invalid response\n\nPlease provide us with some basic details about the child for whom you'd like to order a book:\n\nName, Date of Birth (dd-mm-yyyy)\n\nexample: Amamda, 23-01-2012")
+            await this.bot.transmitMessage("Invalid response\n\n" + messages.new_child)
             return
         }
         try {
             const [name, dateString] = this.bot.userMessage.split(',')
-            console.log('dateString', dateString)
-            console.log('date ', convertStringToDate(dateString))
+            if (this.bot.botProfile.children && this.bot.botProfile.children.length > 0) {
+                const nameExists = this.bot.botProfile.children.some(child => child.name === name.trim());
+                if (nameExists) {
+                    this.bot.transmitMessage(`${messages.a_child_with_this_name_already_exits}\n\n${messages.new_child}`)
+                    return
+                }
+
+            }
             this.bot.botProfile.children.push({name: name.trim(), dob: convertStringToDate(dateString)})
             this.bot.botProfile.params.selectedChild = name
             await this.bot.botProfile.save()
@@ -34,11 +41,14 @@ export class New_User_Engine{
     async save_first_question(){
         const answer = this.bot.userMessage
         const childName = this.botProfile.params.selectedChild as string
+        const child = this.botProfile.children.find(child => child.name === childName)
+        this.botProfile.params.selected_child_id = child?._id?.toString()
         try {
-            this.botProfile.recommendInfo.push({
+            this.botProfile.params.recommendInfo = []
+            this.botProfile.params.recommendInfo.push({
                 q: 'q1',
                 answer,
-                childName
+                child: `${child?._id}`
             })
         await this.botProfile.save()
         await this.bot.transition(New_User_States.SECOND_QUESTION)
@@ -52,10 +62,10 @@ export class New_User_Engine{
         const answer = this.bot.userMessage
         const childName = this.botProfile.params.selectedChild as string
         try {
-            this.botProfile.recommendInfo.push({
+            this.botProfile.params.recommendInfo.push({
                 q: 'q2',
                 answer,
-                childName
+                child: `${this.botProfile.params.selected_child_id}`
             })
         await this.botProfile.save()
         await this.bot.transition(New_User_States.THIRD_QUESTION)
@@ -68,10 +78,10 @@ export class New_User_Engine{
         const answer = this.bot.userMessage
         const childName = this.botProfile.params.selectedChild as string
         try {
-            this.botProfile.recommendInfo.push({
+            this.botProfile.params.recommendInfo.push({
                 q: 'q3',
                 answer,
-                childName
+                child: `${this.botProfile.params.selected_child_id}`
             })
         await this.botProfile.save()
         await this.bot.transition(New_User_States.FOURTH_QUESTION)
@@ -84,10 +94,10 @@ export class New_User_Engine{
         const answer = this.bot.userMessage
         const childName = this.botProfile.params.selectedChild as string
         try {
-            this.botProfile.recommendInfo.push({
+            this.botProfile.params.recommendInfo.push({
                 q: 'q4',
                 answer,
-                childName
+                child: `${this.botProfile.params.selected_child_id}`
             })
         await this.botProfile.save()
         await this.bot.transition(New_User_States.FIFTH_QUESTION)
@@ -100,15 +110,19 @@ export class New_User_Engine{
         const answer = this.bot.userMessage
         const childName = this.botProfile.params.selectedChild as string
         try {
-            this.botProfile.recommendInfo.push({
+            this.botProfile.params.recommendInfo.push({
                 q: 'q5',
                 answer,
-                childName
+                child: `${this.botProfile.params.selected_child_id}`
             })
-        await this.botProfile.save()
-        await this.bot.recommendations()
-        return
-        return;
+            // Setting this.botProfile.recommendInfo to the value of this.botProfile.params.recommendInfo
+            const recommendInfo = this.botProfile.params.recommendInfo 
+            this.botProfile.recommendInfo.push(...recommendInfo)
+            // Resetting this.botProfile.params.recommendInfo to an empty array
+            this.botProfile.params.recommendInfo = [];
+            await this.botProfile.save()
+            await this.bot.recommendations()
+            return
         } catch (error: any) {
             console.log('save_fifth_question', error)
         }

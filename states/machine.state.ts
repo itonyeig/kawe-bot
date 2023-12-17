@@ -1,6 +1,7 @@
 import OrderState from './order.states';
 import New_User_States from './new-user.states';
 import Recommendation_States from './recommendation.states';
+import PaymentStates from './paymentStates';
 
 export enum DefaultState {
     IDLE="idle",
@@ -11,10 +12,11 @@ export const MachineState = {
     ...DefaultState,
     ...OrderState,
     ...New_User_States,
-    ...Recommendation_States
+    ...Recommendation_States,
+    ...PaymentStates
 }
 
 //used as a type (I know, typescript is weird sometimes)
-export type MachineStateType = DefaultState | OrderState | New_User_States | Recommendation_States;
+export type MachineStateType = DefaultState | OrderState | New_User_States | Recommendation_States | PaymentStates;
 
 

@@ -6,8 +6,9 @@ import { BotModel } from "../model/bot.model";
 import { OrderModel } from "../model/order.model";
 import { MachineState } from "../states/machine.state";
 import OrderState from "../states/order.states";
-import { check_if_user_cant_make_order, formatBooksList, isValidInput, searchBooks } from "../utils/helper";
+import { book_due_in_weeks, formatBooksList, isValidInput, searchBooks } from "../utils/helper";
 import { addWeeks } from 'date-fns';
+import { messages } from "../utils/messages";
 
 
 export default class OrderEngine {
@@ -32,7 +33,7 @@ export default class OrderEngine {
 
         try {
             
-            const kawe_books: BookModelI[] = await searchBooks(user_msg, `${process.env.KAWE_TOKEN}`) as any
+            const kawe_books: BookModelI[] = await searchBooks(user_msg) as any
             if (kawe_books?.length === 0) {
                 await this.bot.transmitMessage('No books matched your search. Would you like to try a different keyword or phrase? Please enter your new search term or phrase.')
                 return
@@ -83,21 +84,24 @@ export default class OrderEngine {
         const wa_id = this.bot.whatsapp_number
         const book_id = this.botProfile.params.selected_book_id as string
         const selectedBook: SearchedBooks = JSON.parse(this.botProfile.params.selected_book as string )
+        const selectedChildObj = this.botProfile.children.find(child => child.name === this.botProfile.params.selectedChild)
         if(!isValidInput(msg, 2)){
             await this.bot.transmitMessage(`That was not a valid response, kindly provide a valid response`)
             return 
         }
         try {
             if (msg === 1) {
-                if (await check_if_user_cant_make_order(wa_id)) {
-                    await this.bot.transmitMessage('Apologies, but it appears that you either have books that are yet to be returned or there are pending payments on your account.')
-                    await this.bot.transition(MachineState.IDLE)
-                    return;
+                const checker = await this.bot.check_if_user_can_make_order()
+                if (!checker.move_on) {
+                    await this.bot.transmitMessage(checker.message || "Could not process")
+                    return
                 }
+                
                 const orderData: OrderI = {
                     wa_id,
                     books: book_id,
-                    due_date: addWeeks(new Date(), 2)
+                    due_date: addWeeks(new Date(), book_due_in_weeks),
+                    child: selectedChildObj?._id as string
                 }
                 const order = new OrderModel(orderData)
                 await order.save()

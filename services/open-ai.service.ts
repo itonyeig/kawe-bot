@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { Book } from "../interface/kawe.interface";
 
 export interface QuestionsAnswers {
     question: string;
@@ -15,7 +14,7 @@ export  async function getBookRecommendations(childAge: string | number, bookLis
   
     try {
      // Prepare the prompt for OpenAI
-     const prompt = `Based on the specific details provided, recommend books for a child, ensuring that each recommendation comes exclusively from the provided Book List, which primarily consists of African-themed books. Include a concise reason for each recommendation, focusing on the child's age, previous order history, and their questions and answers. Where appropriate, use the child's name, ${childName}, in the reasoning to create a more personalized response. Use the 👉 symbol for each recommendation.
+     const prompt = `Based on the details provided for ${childAge}-year-old ${childName}, recommend suitable books from the provided African-themed Book List. For each recommendation, include a concise rationale focusing on Amamda's age, interests, and previous reading history. Ensure the recommendations are engaging and appropriate for her developmental stage. Use the 👉 symbol for each recommendation.
 
      - Child's Name: ${childName}
      - Age: ${childAge}
@@ -23,8 +22,7 @@ export  async function getBookRecommendations(childAge: string | number, bookLis
      - Questions and Answers: ${questionsAnswers.map(qa => qa.question + ': ' + qa.answer).join('\n')}
      - Book List (Only select from these, focusing on African themes): ${bookList.join(', ')}
      
-     Important: It is crucial to recommend books only from the Book List, with a focus on African themes. Where it adds personalization and relevance, include ${childName} in the rationale for the recommendations. Avoid suggesting any books not on the list.
-
+     Important: It is crucial to recommend books only from the Book List, with a focus on African themes. Where it adds personalization and relevance, include ${childName} in the rationale for the recommendations. Avoid suggesting any books not on the list Avoiding andy aditional text outside of book and concise recommendation rationale.
      Recommendations: `;
 
         console.log ('gpt prompt ', prompt)
