@@ -2,7 +2,9 @@ import axios from "axios";
 import { calculateTotalAmountIncludingFees } from "../utils/helper";
 
 
-async function initializePayment(amount: number, transactionRef: string, email: string) {
+async function initializePayment(amount: number, transactionRef: string, email: string,  metadata: {
+  tier: number;
+} ) {
     try {
       const url = 'https://api.paystack.co/transaction/initialize';
       const response: any = await axios.post(
@@ -12,6 +14,7 @@ async function initializePayment(amount: number, transactionRef: string, email: 
           reference: transactionRef,
           currency: "NGN",
           email,
+          metadata
         },
         {
           headers: {

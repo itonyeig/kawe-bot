@@ -39,7 +39,6 @@ const PaymentSchema = new Schema<PaymentModelI>({
     },
     valid_till: {
         type: Date,
-        immutable: true,
     }
 }, {
     timestamps: true,

@@ -1,5 +1,6 @@
 import { Schema, model, Document } from 'mongoose';
 import { OrderI } from '../interface/order.interface';
+import { Tier } from '../interface/payment-interface';
 
 export interface OrderModelI extends OrderI, Document {}
 
@@ -8,6 +9,10 @@ const OrderSchema = new Schema<OrderModelI>({
     books: { type: Schema.Types.ObjectId, required: true, ref: 'Book', immutable: true, },
     due_date: { type: Date, required: true },
     child: { type: String, required: true },
+    tier: {
+        type: Number,
+        enum: Tier,
+      },
     fulfilled: { type: Boolean, required: true, default: false },
     returned: { type: Boolean, required: true, default: false },
 }, {

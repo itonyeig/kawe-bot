@@ -105,11 +105,14 @@ export async function whatsappGET(req: Request, res: Response) {
     }
 
     const paystack: PaystackWebhook = req.body;
+    const data = paystack.data
     const { reference} = paystack.data
     const amount = (paystack.data.amount)/100
     const record = await PaymentModel.findOne({reference, payment_received: false})
     
     if (paystack.event !== "charge.success" || !record || record.amount !== calculateOriginalAmountFromTotal(paystack.data.amount)) {
+      console.log(JSON.stringify(req.body, null, 2));
+      console.log("sent bad request")
       return res.status(400).send("Bad Request");
     }
 
@@ -117,7 +120,8 @@ export async function whatsappGET(req: Request, res: Response) {
     await  BotModel.updateOne({ wa_id: record.wa_id }, { 
       active: true, 
       lastPaymentMade: new Date(), 
-      tier: accountPaidFor(amount), 
+       tier: data.metadata.tier, 
+
       currentState: MachineState.AWAITING_WAKE_FROM_IDLE_RESPONSE, 
       previousState: MachineState.IDLE ,
       params: {},

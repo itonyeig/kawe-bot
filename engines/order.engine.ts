@@ -6,9 +6,10 @@ import { BotModel } from "../model/bot.model";
 import { OrderModel } from "../model/order.model";
 import { MachineState } from "../states/machine.state";
 import OrderState from "../states/order.states";
-import { book_due_in_weeks, formatBooksList, isValidInput, searchBooks } from "../utils/helper";
+import { book_due_in_weeks, formatBooksList, formatChildrenList, isValidInput, searchBooks } from "../utils/helper";
 import { addWeeks } from 'date-fns';
 import { messages } from "../utils/messages";
+import New_User_States from "../states/new-user.states";
 
 
 export default class OrderEngine {
@@ -47,7 +48,7 @@ export default class OrderEngine {
                 num: index + 1
             } as SearchedBooks));
             const stringifiedSearchedBooks = JSON.stringify(searchResults)
-            console.log('response from searching for books kawe api call: ', stringifiedSearchedBooks)
+            // console.log('response from searching for books kawe api call: ', stringifiedSearchedBooks)
             this.bot.botProfile.params.stringifiedSearchedBooks = stringifiedSearchedBooks
             this.bot.botProfile.params.searchMessageToUser = message
             await this.bot.botProfile.save();
@@ -62,6 +63,7 @@ export default class OrderEngine {
     async book_selection(){
         const msg = +this.bot.userMessage;
         const searchBooks: SearchedBooks[] = JSON.parse(this.botProfile.params.stringifiedSearchedBooks as string)
+        const selectedChild = this.botProfile.params.selectedChild
         
         try {
             if (!isValidInput(msg, searchBooks.length)) {
@@ -72,10 +74,42 @@ export default class OrderEngine {
             this.botProfile.params.selected_book_id = selectedBook?.id as string
             this.botProfile.params.selected_book = JSON.stringify(selectedBook)
             await this.botProfile.save()
+            
+            if (this.botProfile.children.length === 0) {
+                await this.bot.transition(New_User_States.NEW_CHILD);
+                await this.bot.transmitMessage(messages.new_child);
+            } else {
+              
+                if (selectedChild) {
+                    await this.bot.transition(OrderState.CONFIRM_ORDER)
+                    await this.bot.transmitMessage(`You selected ${selectedBook?.title} by ${selectedBook?.author} for ${selectedChild}\n\n👉[1] Confirm\n👉[2] Cancel`)
+                } else {
+                    const message = formatChildrenList(this.botProfile.children)
+                    await this.bot.transition(OrderState.AWAITING_CHILD_SELECTION)
+                    await this.bot.transmitMessage(message)
+                }
+              
+            }
+        } catch (error: any) {
+            console.log("err occured in book_selection ", error.message)
+        }
+      }
+
+      async child_selection() {
+        const children = this.botProfile.children
+        const msg = +this.bot.userMessage;
+        if (!isValidInput(msg, children.length)) {
+            await this.bot.transmitMessage('Invalid response\n\n' + formatChildrenList(children))
+            return
+        }
+        try {
+            const child = await this.bot.save_selected_child_name_and_id_to_params()
+            const searchBooks: SearchedBooks[] = JSON.parse(this.botProfile.params.stringifiedSearchedBooks as string)
+            const selectedBook = searchBooks.find(book => book.num === msg)
             await this.bot.transition(OrderState.CONFIRM_ORDER)
-            await this.bot.transmitMessage(`You selected ${selectedBook?.title} by ${selectedBook?.author}\n\n👉[1] Confirm\n👉[2] Cancel`)
-        } catch (error) {
-            console.log("err occured in book_selection ", error)
+            await this.bot.transmitMessage(`You selected ${selectedBook?.title} by ${selectedBook?.author} for ${child.name}\n\n👉[1] Confirm\n👉[2] Cancel`)
+        } catch (error: any) {
+            console.log('error in child_selection', error.message)
         }
       }
 
@@ -93,6 +127,7 @@ export default class OrderEngine {
             if (msg === 1) {
                 const checker = await this.bot.check_if_user_can_make_order()
                 if (!checker.move_on) {
+                    console.log('herenjn', checker)
                     await this.bot.transmitMessage(checker.message || "Could not process")
                     return
                 }
@@ -101,7 +136,8 @@ export default class OrderEngine {
                     wa_id,
                     books: book_id,
                     due_date: addWeeks(new Date(), book_due_in_weeks),
-                    child: selectedChildObj?._id as string
+                    child: selectedChildObj?._id as string,
+                    // ...(this.botProfile?.tier && { tier: this.botProfile?.tier }),
                 }
                 const order = new OrderModel(orderData)
                 await order.save()

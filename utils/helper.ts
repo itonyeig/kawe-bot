@@ -13,7 +13,7 @@ import { PaymentModel } from "../model/payment.model";
 import { initializePayment } from "../services/paystack.service";
 
 export enum Check_User_Payment_Status {
-  FREE_TRIAL="You are on a free trial and are only allowed 1 book",
+  FREE_TRIAL="You are on a free trial and are only allowed 1 book. You can return to the home page by typing 'hi' and then selecting 'Make Subscription Payment.'",
   UNRETURN_BOOKS= "The selected child has two unrerned books. Please return the books to proceed",
   EXPIRED="Your current subscription has expired",
   NULL=""
@@ -26,6 +26,8 @@ export const min_tier_2 = 3; // minimin number of children that can be on a tier
 export const teir_one_amount = 4000  * months // for 2 children. 2000 per child
 export const teir_two_amount = 1800  * months // per child
 export const book_due_in_weeks = 2
+export const escape_word = 'hi'
+
 export const accountPaidFor = (amount: number): Tier => {
   // Deduct 1.5% from the amount
   const adjustedAmount = amount * (1 - 0.015);
@@ -210,7 +212,9 @@ async function createPayment(wa_id: string, tier: Tier, amount: number, email: s
   }
 
   await PaymentModel.create(data)
-  const paymentLink = await initializePayment(amount, reference, email)
+  const paymentLink = await initializePayment(amount, reference, email, {
+    tier
+  })
   return paymentLink
 }
 
@@ -252,7 +256,7 @@ function countDigitPatterns(inputString:string) {
 
 function userOnFreeTrial(botProfile: BotModel){
   const twoWeeks = addWeeks(new Date(), 2);
-  // console.log(botProfile.createdAt! <= twoWeeks, !botProfile?.active)
+  console.log("awake-from-idle-response", botProfile.createdAt! <= twoWeeks, !botProfile?.active)
   return botProfile.createdAt! <= twoWeeks && !botProfile?.active
 }
 
@@ -269,10 +273,12 @@ async function subscription_is_still_valid (botProfile: BotModel) {
 
   const validPaymentCount = await PaymentModel.countDocuments({
       wa_id: botProfile.wa_id,
-      tier,
+      // tier, // if tier is to two... add children id to an array that will be saved
       payment_received: true,
       valid_till: { $gte: sixMonthsAgo }
   });
+
+  console.log('validPaymentCount', validPaymentCount)
 
   return validPaymentCount > 0;
 

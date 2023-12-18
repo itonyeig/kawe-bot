@@ -19,14 +19,11 @@ export class Recommendation_Engine{
             return
         }
         try {
-            const index = +this.bot.userMessage - 1
-            const child = this.botProfile.children[index]
-            this.botProfile.params.selectedChild = child.name
-            this.botProfile.params.selected_child_id = `${child._id}`
-
+            
+            const child = await this.bot.save_selected_child_name_and_id_to_params()
             const q_a = this.botProfile.recommendInfo.filter(qa => qa.child === child._id?.toString())
 
-            await this.botProfile.save()
+            
             if (q_a.length >= number_of_questions) {
                 await this.bot.recommendations()
                 return

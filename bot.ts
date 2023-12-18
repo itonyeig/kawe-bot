@@ -3,7 +3,7 @@ import { BotModel } from "./model/bot.model";
 import axios from 'axios';
 import Machine from "./machines/machine";
 import NEW_USER_STATES, { New_User_States } from "./states/new-user.states";
-import { Check_User_Payment_Status, book_due_in_weeks, countDigitPatterns, formatChildrenList, generateGPTPContext, isValidInput, max_tier_1, number_of_questions, subscription_is_still_valid, userOnFreeTrial } from "./utils/helper";
+import { Check_User_Payment_Status, book_due_in_weeks, countDigitPatterns, escape_word, formatChildrenList, generateGPTPContext, isValidInput, max_tier_1, number_of_questions, subscription_is_still_valid, userOnFreeTrial } from "./utils/helper";
 import Recommendation_States from "./states/recommendation.states";
 import { getBookRecommendations } from "./services/open-ai.service";
 import OrderState from "./states/order.states";
@@ -32,8 +32,11 @@ export default class Bot {
     userMessage: string;
     whatsapp_phone_id: string;
     whatsapp_number: string;
-    default_message = `${messages.default_message}${messages.selection}\n\nType 'hello' at any point to come back here`;
-    default_book_search_message = 'What book will you like to search for? Kindly enter the book title or book author.'
+    default_message = `${messages.default_message}${messages.selection}\n\nType '${escape_word}' at any point to come back here`;
+    default_book_search_message = 'What book will you like to search for? Kindly enter the book title or book author.';
+    reset_bot_values = {
+      recommendInfo: []
+    }
 
     private token = process.env.WHATSAPP_TOKEN;
 
@@ -61,10 +64,10 @@ export default class Bot {
             await this.setDefaultState();
           } 
           
-          if (this.currentState === MachineState.IDLE) {
-            await this.rebootBot()
+          // if (this.currentState === MachineState.IDLE) {
+          //   await this.rebootBot()
             
-          }
+          // }
       
           // check if bot has current state OR set current state to idle
           return this.machine.handle()
@@ -99,7 +102,7 @@ export default class Bot {
       private async setDefaultState() {
         if (
           !this.withinBotSession() ||
-          (this.userMessage.toLocaleLowerCase() === "hello" && !this.is_currently_in_state(PaymentStates.PROCESSING_PAYMENT)
+          (this.userMessage.toLocaleLowerCase() === escape_word && !this.is_currently_in_state(PaymentStates.PROCESSING_PAYMENT)
           )
         ){
           
@@ -116,9 +119,7 @@ export default class Bot {
       async rebootBot(){
         console.log("reseting machine ....");
         try {
-            this.botProfile.params = {
-              recommendInfo: []
-            }
+            this.botProfile.params = this.reset_bot_values
             await this.botProfile.save()
             if (this.currentState !== MachineState.IDLE) {
               await this.transition(MachineState.IDLE)
@@ -169,6 +170,17 @@ export default class Bot {
     } catch (error) {
       console.log("err occured in handle_default ", error)
     }
+    }
+
+     async save_selected_child_name_and_id_to_params(){
+      const index = +this.userMessage - 1
+      const child = this.botProfile.children[index]
+      this.botProfile.params.selectedChild = child.name
+      this.botProfile.params.selected_child_id = `${child._id}`
+
+      await this.botProfile.save()
+
+      return child;
     }
 
     async handle_wake_from_idle() {
@@ -222,11 +234,11 @@ export default class Bot {
             else if(!userOnFreeTrial(this.botProfile) || this.botProfile.children.length !== 0){
               if (this.botProfile.email) {
                 await this.transition(MachineState.SELECT_PAYMENT_TIER);
-                await this.transmitMessage(`${messages.free_trial_over}\n\n${messages.default_payment_message}`);
+                await this.transmitMessage(`${messages.add_child_on_free}\n\n${messages.default_payment_message}`);
                 break;
               } else {
                 await this.transition(MachineState.AWAITING_EMAIL)
-                await this.transmitMessage(`${messages.free_trial_over}\n\n${messages.request_email}`)
+                await this.transmitMessage(`${messages.add_child_on_free}\n\n${messages.request_email}`)
                 break;
               }
             }
@@ -291,7 +303,13 @@ export default class Bot {
           // Debug messages
           // console.log("after ", this.profile.botMode[this.mode]);
 
-          if (this.botProfile.currentState === MachineState.IDLE) {
+          if (this.botProfile.currentState === MachineState.IDLE && 
+            JSON.stringify(this.botProfile.params) !== JSON.stringify(this.reset_bot_values)
+            ) {
+            console.log("this.botProfile.currentState   ", this.botProfile.currentState )
+            console.log("this.botProfile.params  ", this.botProfile.params)
+            console.log("reset_bot_values  ", this.reset_bot_values)
+            console.log("howdy  ")
             await this.rebootBot()
           }
           console.log(
@@ -415,14 +433,16 @@ export default class Bot {
 
       let move_on = false
       let message = Check_User_Payment_Status.NULL
+      console.log('doc', ordersForChild)
 
       if (onFreeTrial) {
           // User on free trial can order one book for one child
           move_on = ordersForChild < 1, 
           message = move_on ? Check_User_Payment_Status.NULL : Check_User_Payment_Status.FREE_TRIAL;
-
+          
       } else if (await subscription_is_still_valid(this.botProfile)){
         move_on = ordersForChild < book_due_in_weeks
+        console.log('cdewcewcwecw', move_on)
         message = move_on ? Check_User_Payment_Status.NULL : Check_User_Payment_Status.UNRETURN_BOOKS;
 
         // switch (tier) {
@@ -445,9 +465,9 @@ export default class Bot {
         
       }
 
-      if (!move_on) {
-        await this.transition(MachineState.IDLE)
-      }
+      // if (!move_on) {
+      //   await this.transition(MachineState.IDLE)
+      // }
       return {
         move_on,
         message

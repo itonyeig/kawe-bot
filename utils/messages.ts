@@ -8,8 +8,9 @@ export const messages = {
     request_email: 'Could you kindly provide the email address where you would like us to send your receipt?',
     payment_recieved: `Congratulations! Your payment has been processed. Please select what you would like to assist you with?`,
     payment_or_due_book: 'Apologies, but it appears that you either the selected child has a book that is yet to be returned or there are pending payments on your account.',
-    new_child: "Please provide us with some basic details about the child for whom you'd like to order a book:\n\nName, Date of Birth (dd-mm-yyyy)\n\nexample: Amamda, 23-01-2012",
+    new_child: "Please provide us with some basic details about the child for whom you'd like to order a book:\n\nName, Date of Birth (dd-mm-yyyy)\n\nExample: Amamda, 23-01-2012",
     a_child_with_this_name_already_exits: "A child with this name already exists in our system. To make each child's profile unique, you could add a last name, a middle name, or something special that only you know, like a nickname",
-    free_trial_over: "Your free trial has been exhausted, you have either already borrowed one book, or its been two weeks since your account was created. You will need to make a payment before you can proceed. Allow me to work you through how to make a payment",
+    free_trial_over: "Your free trial has been exhausted, you have either already borrowed one book, or its been two weeks since your account was created. You will need to make a payment before you can proceed. Allow me to walk you through how to make a payment",
     default_message : "Please choose from the following options:\n\n👉[1] Allow us to suggest a book for you\n👉[2]Search our library for a specific book\n👉[3] Add a child \n👉[4] Make Subscription Payment.",
+    add_child_on_free: "You cannot add more that one child while on free trial but we can upgrade your account"
 } as const

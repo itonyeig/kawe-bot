@@ -17,9 +17,7 @@ export interface PaystackWebhook {
     currency: string;
     ip_address: string;
     metadata: {
-      paymentCode: string;
-      customerEmail: string;
-      paymentPartnerId: string;
+      tier: number;
     };
     fees_breakdown?: any;
     log?: any;
